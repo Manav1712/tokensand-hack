@@ -1,0 +1,160 @@
+:root {
+  --bg: #06051d;
+  --panel: #0f1c36;
+  --text: #ebecef;
+  --muted: #9ca0ad;
+  --accent: #63b3ed;
+  --rose: #ff2056;
+  --allow: #00bc7d;
+  --ask: #f0b100;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --sans: "DM Sans", system-ui, sans-serif;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+body {
+  font-family: var(--sans);
+  font-size: 18px;
+  line-height: 1.5;
+  font-weight: 400;
+}
+
+h1, h2, h3, .mono {
+  font-family: var(--mono);
+  font-weight: 400;
+}
+
+h1 {
+  font-size: clamp(32px, 5vw, 56px);
+  line-height: 1.15;
+  margin: 0;
+}
+
+h2 {
+  font-size: clamp(22px, 3vw, 30px);
+  line-height: 1.25;
+  margin: 0;
+}
+
+p { margin: 0; }
+
+button, input, select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  background: transparent;
+  border: 1px solid rgba(235, 236, 239, 0.16);
+  border-radius: 999px;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
+button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.scene-section { position: relative; }
+
+.stage {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  padding: 72px 7vw 72px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 28px;
+  overflow: hidden;
+}
+
+.step-readout {
+  position: fixed;
+  left: 28px;
+  bottom: 22px;
+  z-index: 2;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.lede {
+  max-width: 36rem;
+  color: var(--text);
+}
+
+.muted { color: var(--muted); }
+
+.accent { color: var(--accent); }
+
+.panel {
+  background: var(--panel);
+  border-radius: 16px;
+  padding: 20px 24px;
+}
+
+.dotcube {
+  width: min(520px, 86vw);
+  height: min(520px, 62vh);
+  display: block;
+}
+
+.code-frame {
+  background: var(--panel);
+  border-radius: 16px;
+  padding: 18px 20px;
+  overflow: auto;
+  max-height: 46vh;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.code-frame pre {
+  margin: 0;
+  background: transparent !important;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 6px 12px;
+}
+
+.badge small {
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}

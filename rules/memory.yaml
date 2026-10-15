@@ -1,0 +1,13 @@
+rules:
+  - id: skill-memory-file-persistence
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      Instruction to write or append an agent memory file (MEMORY.md or
+      CLAUDE.md). That text is loaded into later sessions.
+    metadata:
+      category: security
+      confidence: MEDIUM
+    pattern-regex: >-
+      (?i)(write|append|save|persist|update).{0,80}
+      (MEMORY\.md|CLAUDE\.md|agent memory)
