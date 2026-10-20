@@ -4,7 +4,7 @@ Handoff for the next agent. Read this before `docs/build-guide.md`. One chat com
 
 ## Next step
 
-Step 19 — Mini-agent phase
+Step 19 — Isolation check, fail closed
 
 ## Status
 
@@ -29,13 +29,19 @@ Step 19 — Mini-agent phase
 | 16 strace and diff | done | `python -m pytest tests/test_observe.py tests/test_observe_docker.py -q` |
 | 17 Detonate a script | done | `python -m pytest tests/test_detonate.py tests/test_first_block.py -q` |
 | 18 Orchestrator guards | done | `python -m pytest tests/test_orchestrator.py tests/test_first_block.py tests/test_detonate.py -q` |
-| 19 Mini-agent | not started | `python -m pytest tests/test_mini_agent.py tests/test_detonate.py -q` |
-| 20 Second run | not started | `python -m pytest tests/test_second_run.py tests/test_findings.py -q` |
-| 21 Signing | not started | `python -m pytest tests/test_signing.py tests/test_signing_roundtrip.py -q` |
-| 22 Publish | not started | `python -m pytest tests/test_publish.py -q` |
-| 23 Akash client | not started | `python -m pytest tests/test_akash.py tests/test_breaker.py -q` |
-| 24 Verdict page | not started | `python -m pytest tests/test_verdict_page.py -q` |
-| 25 Full regression | not started | `python -m pytest tests -q` and `docker compose -f docker/compose.yaml build` |
+| 19 Isolation check | not started | `python -m pytest tests/test_isolation.py tests/test_isolation_docker.py tests/test_detonate.py -q` |
+| 20 Lived-in home | not started | `python -m pytest tests/test_honeytoken.py tests/test_jail_plan.py tests/test_detonate.py -q` |
+| 21 Value-flow canaries | not started | `python -m pytest tests/test_canary.py tests/test_observe.py tests/test_findings.py tests/test_detonate.py -q` |
+| 22 Answering sink | not started | `python -m pytest tests/test_sink.py tests/test_exfil_hosts.py tests/test_findings.py tests/test_detonate.py -q` |
+| 23 Phases and coverage | not started | `python -m pytest tests/test_phases.py tests/test_detonate.py -q` |
+| 24 Agent turn | not started | `python -m pytest tests/test_mini_agent.py tests/test_phases.py tests/test_detonate.py -q` |
+| 25 Profiles and clock skew | not started | `python -m pytest tests/test_profiles.py tests/test_findings.py tests/test_detonate.py -q` |
+| 26 Evaluation and guarantees | not started | `python -m pytest tests/test_eval_matrix.py tests/test_canary_leak.py tests/test_isolation_regression.py tests/test_determinism.py -q` and `python scripts/eval_detonation.py --corpus fixtures/eval --out .eval` |
+| 27 Signing | not started | `python -m pytest tests/test_signing.py tests/test_signing_roundtrip.py -q` |
+| 28 Publish | not started | `python -m pytest tests/test_publish.py -q` |
+| 29 Akash client | not started | `python -m pytest tests/test_akash.py tests/test_breaker.py -q` |
+| 30 Verdict page | not started | `python -m pytest tests/test_verdict_page.py -q` |
+| 31 Full regression | not started | `python -m pytest tests -q`, `docker compose -f docker/compose.yaml build` and `python scripts/eval_detonation.py --corpus fixtures/eval --out .eval` |
 | Gate A ClickHouse Cloud | not started | needs `CLICKHOUSE_HOST`, `CLICKHOUSE_PASSWORD`, `CLICKHOUSE_USERNAME` |
 | Gate B minisign | not started | needs `~/.minisign/skill-warden.key` |
 | Gate C GitHub PR | not started | needs `GITHUB_TOKEN` |
@@ -53,8 +59,10 @@ Carry these forward until a later log entry retires them.
 - Semgrep 1.180.0 is installed in the project venv. `.venv/bin` must be on `PATH` so `semgrep` resolves. Do not request `p/agent-skills` in Step 8.
 - Step 9 is green and stays on the host `semgrep` binary. The jail does not replace that path. `build_rows` accepts `jail_events` and maps honeytoken or nonce to `source=canary` / `rule_id=honeytoken`; other jail events use `source=jail`. `findings.source` includes `jail = 5`. Step 15 provides `skill_warden.sink` (`jailnet`, dnsmasq at `172.30.15.2`, `gateway_mode_ipv4=isolated`). `Orchestrator` does not start the sink or call `jail.detonate`. Step 18 adds an optional `runner(record, env) -> (events, timed_out)`. With no runner, `run` is the Step 9 body. On timeout the runner path skips the reader, calls `finish_run(run_id, "timeout")`, still calls `verdict` once, and `leave` runs in `finally`. `env` is a copy of `os.environ` without `GITHUB_TOKEN`, `CLICKHOUSE_PASSWORD`, `MINISIGN_KEY`, or `AKASHML_API_KEY`. The orchestrator still does not choose BLOCK from severity. Fleet memory is not an input to the verdict SQL. `Orchestrator.run` requires a reader collaborator. Tests use an in-process fake with `call(text) -> dict`. Production wiring to AkashML is not in this path yet. Do not call AkashML from tests.
 - The sink is DNS-only. No HTTP, TLS, or catch-all on the sink until Step 17. `jailnet` is created and removed by the sink runner; an unlabeled existing `jailnet` makes `start()` raise `SinkError`. Probe image `busybox:1.36.1` must be pullable once (cached afterward).
-- `observe.parse_strace` keeps `openat` / `execve` paths and `connect` destinations. A failed call’s `ret` is the errno name only (`ENOENT`), not the full strace suffix. `connect` dst parsing expects `sin_port=htons`, `inet_addr` / `inet_pton`, or `sun_path`. `events_from_diff` returns `change` and `path` only. Step 17 maps those to `build_rows` kinds. `probe_paths` stays at Step 20. Image `skill-warden-observe:step16` is local (`alpine:3.20` plus `strace`); Alpine `true` issues no `openat`, so the live parse runs `cat /etc/alpine-release` under the same `--cap-drop ALL`.
-- `minisign` must be on `PATH` for Step 21. Node must be on `PATH` for Step 18.
+- `observe.parse_strace` keeps `openat` / `execve` paths and `connect` destinations. A failed call’s `ret` is the errno name only (`ENOENT`), not the full strace suffix. `connect` dst parsing expects `sin_port=htons`, `inet_addr` / `inet_pton`, or `sun_path`. `events_from_diff` returns `change` and `path` only. Step 17 maps those to `build_rows` kinds. Probe markers are revised at Step 25. Image `skill-warden-observe:step16` is local (`alpine:3.20` plus `strace`); Alpine `true` issues no `openat`, so the live parse runs `cat /etc/alpine-release` under the same `--cap-drop ALL`.
+- Docker Desktop on this machine reported runc 1.2.5 (Engine 28.5.1) on 16 October 2026. Step 19’s floor is 1.2.8 / 1.3.3, so Step 19 is blocked until the operator updates Docker Desktop. Do not lower the floor.
+- `docker diff` does not list writes inside the jail’s tmpfs mounts (`/home/agent`, `/tmp`). Until Step 21 lands, live persistence detection is blind.
+- `minisign` must be on `PATH` for Step 27. Node must be on `PATH` for Step 18.
 - ClickHouse tests use a local container on port 18123. Do not point them at ClickHouse Cloud. Step 6 left `skill-warden-ch-test` running. Admin and `scanner` passwords are `test`. `scanner` can `SELECT` and `INSERT`, and can `UPDATE` only `scan_runs.status` and `scan_runs.finished_at`. `ALTER DELETE` stays denied.
 - No credentials are in the repo. Human gates stay blocked until the operator sets the variables named above.
 - The verdict is chosen only by `schema/verdict.sql`. A README claim is not a verdict.
@@ -65,7 +73,16 @@ Step 7 is fleet memory, specified in `docs/architecture.md` and `docs/build-guid
 
 `scanner` may `UPDATE` only `scan_runs.status` and `scan_runs.finished_at`. `finish_run` updates the one `running` row. A second insert of the same `run_id` is `duplicate_run`. `ALTER DELETE` stays denied.
 
-Step 9 is the static BLOCK path and stays green. The jail is Steps 12–20. It lets a skill act and records the act. ClickHouse still chooses the verdict. A honeytoken or a `jail` high row is BLOCK. Step 17 is the first live detonation.
+Steps 19–31 (2026-10-16) differ from `docs/architecture.md` § Detonation jail. For new code, follow the guide:
+- The runc floor is 1.2.8 on 1.2.x and 1.3.3 on 1.3.x, and `runsc` is used only when Docker lists it.
+- The decisions stay BLOCK, ASK and ALLOW. Incomplete coverage is BLOCK / `tool_error`.
+- A canary touch is BLOCK whatever the skill claims to be for.
+- `/etc/machine-id`, the user name `agent` and `/.dockerenv` are known tells that are not changed.
+- There is no tcpdump sidecar or pcap. strace and the sink logs are the network evidence.
+- The agent loop runs on the host and executes tool calls in the jail. The jail never reaches the model.
+- Raw logs are persisted only as scrubbed copies, and the manifest hashes those copies.
+
+Step 9 is the static BLOCK path and stays green. The jail is Steps 12–26. It lets a skill act and records the act. ClickHouse still chooses the verdict. A honeytoken or a `jail` high row is BLOCK. Step 17 is the first live detonation.
 
 ## Guide updates
 
@@ -75,6 +92,7 @@ Step 9 is the static BLOCK path and stays green. The jail is Steps 12–20. It l
 | 2026-10-09 | Steps 7–19 | Steps 0–6 stay. After the verdict SQL, the next integrated result is a host Semgrep scan that returns BLOCK or ALLOW from that SQL. Reader, jail, signing, and publish thicken that path. |
 | 2026-10-09 | Step 7, Step 8, Step 9 regression | Step 7 is now fleet memory. Semgrep stays as already built. Step 8 does not import it. Step 9’s regression includes `tests/test_memory.py`. |
 | 2026-10-09 | Gate A | `scanner` may update `scan_runs.status` and `scan_runs.finished_at` so `finish_run` does not insert a second row. |
+| 2026-10-16 | Steps 19–31, target tree, human gates, definition of done, out of scope | Detonation research folded in. Steps 19–26 are the jail hardening: isolation check, lived-in home, value-flow canaries, answering sink, phases and coverage, agent turn, profiles and clock skew, evaluation. Signing through full regression moved from 21–25 to 27–31. Incomplete coverage is BLOCK / `tool_error`; no fourth decision. Canary touches stay BLOCK. Rejected and deferred research items are listed under Out of scope. |
 | 2026-10-09 | Steps 12–25, architecture jail | The thin sandbox is replaced by the detonation jail. Step 12 revises findings and the `source` enum. Steps 10 and 11 are unchanged. |
 
 ## Log
