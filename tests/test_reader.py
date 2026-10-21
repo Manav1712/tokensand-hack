@@ -3,8 +3,8 @@ import json
 import httpx
 import pytest
 
-from skill_warden.reader import Reader
 from skill_warden.errors import ReaderInvalid
+from skill_warden.reader import Reader
 
 SKILL = "SECRET-SKILL-TEXT do not log this"
 

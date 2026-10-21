@@ -1,6 +1,5 @@
 import base64
 import urllib.parse
-from pathlib import Path
 
 from skill_warden.honeytoken import build_home, search_nonce
 

@@ -8,7 +8,7 @@ import json
 import os
 import sys
 import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
 
@@ -266,7 +266,7 @@ def run_jail(client) -> dict:
 def main() -> None:
     client = connect()
     payload = {
-        "generatedAt": datetime.now(timezone.utc).isoformat(),
+        "generatedAt": datetime.now(UTC).isoformat(),
         "verdictSql": load_sql(),
         "fixtures": [run_fixture(name, client) for name in EXPECTED],
         "jail": run_jail(client),

@@ -9,3 +9,4 @@ __pycache__/
 *.key
 node_modules/
 dist/
+*.egg-info/

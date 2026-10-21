@@ -5,8 +5,12 @@ import pytest
 
 from skill_warden.observe import events_from_diff, parse_strace_log
 
+pytestmark = pytest.mark.docker
+
 _IMAGE = "skill-warden-observe:step16"
 _DIFF_NAME = "skill-warden-observe-diff"
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+_OBSERVE_CONTEXT = _REPO_ROOT / "docker" / "observe"
 _STRACE_ARGV = [
     "docker",
     "run",
@@ -17,13 +21,25 @@ _STRACE_ARGV = [
     "strace",
     "-f",
     "-e",
-    "trace=openat",
+    "trace=open,openat",
     "true",
 ]
 
 
+@pytest.fixture(scope="module", autouse=True)
+def _build_observe_image():
+    built = subprocess.run(
+        ["docker", "build", "-t", _IMAGE, str(_OBSERVE_CONTEXT)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if built.returncode != 0:
+        pytest.fail(built.stderr.strip() or built.stdout)
+
+
 def _require_docker() -> None:
-    info = subprocess.run(["docker", "info"], capture_output=True, text=True)
+    info = subprocess.run(["docker", "info"], check=False, capture_output=True, text=True)
     if info.returncode != 0:
         pytest.fail(info.stderr)
 
@@ -31,7 +47,7 @@ def _require_docker() -> None:
 def _container_exists(name: str) -> bool:
     inspect = subprocess.run(
         ["docker", "inspect", name],
-        capture_output=True,
+        check=False, capture_output=True,
         text=True,
     )
     return inspect.returncode == 0
@@ -48,13 +64,13 @@ def test_strace_runs_with_cap_drop_all():
     assert str(Path.home()) not in rendered
     assert "docker.sock" not in rendered
 
-    traced = subprocess.run(argv, capture_output=True, text=True, timeout=60)
+    traced = subprocess.run(argv, check=False, capture_output=True, text=True, timeout=60)
     if traced.returncode != 0:
         pytest.fail(traced.stderr)
 
     listed = subprocess.run(
         ["docker", "ps", "-aq", "--filter", f"ancestor={_IMAGE}"],
-        capture_output=True,
+        check=False, capture_output=True,
         text=True,
     )
     if listed.returncode != 0:
@@ -75,17 +91,17 @@ def test_strace_openat_parses_under_cap_drop_all():
             "strace",
             "-f",
             "-e",
-            "trace=openat",
+            "trace=open,openat",
             "cat",
             "/etc/alpine-release",
         ],
-        capture_output=True,
+        check=False, capture_output=True,
         text=True,
         timeout=60,
     )
     if traced.returncode != 0:
         pytest.fail(traced.stderr)
-    assert "openat" in traced.stderr
+    assert "openat" in traced.stderr or 'open("' in traced.stderr
     events = parse_strace_log(traced.stderr)
     assert any(
         event.get("syscall") == "openat" and event.get("path") == "/etc/alpine-release"
@@ -109,7 +125,7 @@ def test_docker_diff_marks_added_path():
                 "touch",
                 "/tmp/warden-added",
             ],
-            capture_output=True,
+            check=False, capture_output=True,
             text=True,
             timeout=60,
         )
@@ -119,7 +135,7 @@ def test_docker_diff_marks_added_path():
 
         diff = subprocess.run(
             ["docker", "diff", _DIFF_NAME],
-            capture_output=True,
+            check=False, capture_output=True,
             text=True,
             timeout=60,
         )
@@ -130,7 +146,7 @@ def test_docker_diff_marks_added_path():
     finally:
         removed = subprocess.run(
             ["docker", "rm", "-f", _DIFF_NAME],
-            capture_output=True,
+            check=False, capture_output=True,
             text=True,
         )
         if removed.returncode != 0 and created:

@@ -10,6 +10,8 @@ from skill_warden.orchestrator import Orchestrator
 from skill_warden.registry import SkillRecord
 from skill_warden.store import Store
 
+pytestmark = pytest.mark.docker
+
 ROOT = Path(__file__).resolve().parents[1]
 RULES = ROOT / "rules" / "memory.yaml"
 MEMORY = ROOT / "fixtures" / "skills" / "memory-poison"
@@ -24,13 +26,13 @@ class EmptyReader:
 
 
 def _ensure_container() -> None:
-    info = subprocess.run(["docker", "info"], capture_output=True, text=True)
+    info = subprocess.run(["docker", "info"], check=False, capture_output=True, text=True)
     if info.returncode != 0:
         pytest.fail(info.stderr)
 
     inspect = subprocess.run(
         ["docker", "inspect", "-f", "{{.State.Running}}", "skill-warden-ch-test"],
-        capture_output=True,
+        check=False, capture_output=True,
         text=True,
     )
     if inspect.returncode != 0:
@@ -57,7 +59,7 @@ def _ensure_container() -> None:
                 "CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1",
                 "clickhouse/clickhouse-server:26.9",
             ],
-            capture_output=True,
+            check=False, capture_output=True,
             text=True,
         )
         if started.returncode != 0:
@@ -65,7 +67,7 @@ def _ensure_container() -> None:
     elif inspect.stdout.strip() != "true":
         started = subprocess.run(
             ["docker", "start", "skill-warden-ch-test"],
-            capture_output=True,
+            check=False, capture_output=True,
             text=True,
         )
         if started.returncode != 0:
@@ -87,7 +89,7 @@ def _admin_client(clickhouse_connect):
             )
             admin.query("SELECT 1")
             return admin
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             last_error = str(exc)
             time.sleep(1)
     pytest.fail(last_error)

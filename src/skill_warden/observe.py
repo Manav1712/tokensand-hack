@@ -2,7 +2,7 @@ import re
 
 _PID = re.compile(r"^\[pid\s+\d+\]\s*")
 _CALL = re.compile(
-    r"^(?P<syscall>openat|execve|connect)\((?P<args>.*)\)\s*=\s*(?P<ret>.+?)\s*$"
+    r"^(?P<syscall>openat|open|execve|connect)\((?P<args>.*)\)\s*=\s*(?P<ret>.+?)\s*$"
 )
 _QUOTED = re.compile(r'"((?:\\.|[^"\\])*)"')
 _RET = re.compile(r"(-?\d+)(?:\s+([A-Z][A-Z0-9]*))?")
@@ -26,7 +26,7 @@ _DIFF = {"A": "added", "C": "changed"}
 def parse_strace(line: str) -> dict | None:
     try:
         return _parse_strace(line)
-    except Exception:
+    except Exception:  # noqa: BLE001
         return None
 
 
@@ -75,7 +75,9 @@ def _parse_strace(line: str) -> dict | None:
         return None
     syscall = match.group("syscall")
     args = match.group("args")
-    if syscall == "openat":
+    # musl on x86_64 emits open(); aarch64 and glibc usually emit openat().
+    # Both mean a file open, so normalize to openat for the rest of the pipeline.
+    if syscall in ("openat", "open"):
         path = _first_quoted(args)
         if path is None:
             return None
