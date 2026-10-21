@@ -6,7 +6,6 @@ from __future__ import annotations
 import os
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-
 HTTP_LOG = os.environ.get("HTTP_LOG", "/var/log/skill-warden-http.log")
 LISTEN = os.environ.get("HTTP_LISTEN", "0.0.0.0:80")
 

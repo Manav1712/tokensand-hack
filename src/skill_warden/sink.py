@@ -43,14 +43,14 @@ class Session:
 
 
 def _run(args: list[str], *, check: bool = True) -> subprocess.CompletedProcess[str]:
-    result = subprocess.run(args, capture_output=True, text=True)
+    result = subprocess.run(args, check=False, capture_output=True, text=True)
     if check and result.returncode != 0:
         raise SinkError(result.stderr.strip() or " ".join(args))
     return result
 
 
 def _docker_info_ok() -> None:
-    info = subprocess.run(["docker", "info"], capture_output=True, text=True)
+    info = subprocess.run(["docker", "info"], check=False, capture_output=True, text=True)
     if info.returncode != 0:
         raise SinkError(info.stderr.strip() or "docker info failed")
 
@@ -58,7 +58,7 @@ def _docker_info_ok() -> None:
 def _network_inspect() -> dict | None:
     result = subprocess.run(
         ["docker", "network", "inspect", NETWORK_NAME],
-        capture_output=True,
+        check=False, capture_output=True,
         text=True,
     )
     if result.returncode != 0:
@@ -75,19 +75,19 @@ def _cleanup_labeled() -> None:
             "--filter",
             f"label={LABEL_KEY}={LABEL_VAL}",
         ],
-        capture_output=True,
+        check=False, capture_output=True,
         text=True,
     )
     ids = [line for line in listed.stdout.splitlines() if line.strip()]
     if ids:
-        subprocess.run(["docker", "rm", "-f", *ids], capture_output=True, text=True)
+        subprocess.run(["docker", "rm", "-f", *ids], check=False, capture_output=True, text=True)
     net = _network_inspect()
     if net is not None:
         labels = net.get("Labels") or {}
         if labels.get(LABEL_KEY) == LABEL_VAL:
             subprocess.run(
                 ["docker", "network", "rm", NETWORK_NAME],
-                capture_output=True,
+                check=False, capture_output=True,
                 text=True,
             )
 
@@ -120,7 +120,7 @@ def _ensure_network() -> None:
             f"{LABEL_KEY}={LABEL_VAL}",
             NETWORK_NAME,
         ],
-        capture_output=True,
+        check=False, capture_output=True,
         text=True,
     )
     if create.returncode != 0:
@@ -131,20 +131,20 @@ def build_image() -> None:
     _docker_info_ok()
     build = subprocess.run(
         ["docker", "build", "-t", IMAGE_TAG, str(_SINK_BUILD_CONTEXT)],
-        capture_output=True,
+        check=False, capture_output=True,
         text=True,
     )
     if build.returncode != 0:
         raise SinkError(build.stderr.strip() or "docker build failed")
     pull = subprocess.run(
         ["docker", "pull", PROBE_IMAGE],
-        capture_output=True,
+        check=False, capture_output=True,
         text=True,
     )
     if pull.returncode != 0:
         inspect = subprocess.run(
             ["docker", "image", "inspect", PROBE_IMAGE],
-            capture_output=True,
+            check=False, capture_output=True,
             text=True,
         )
         if inspect.returncode != 0:
@@ -171,7 +171,7 @@ def start() -> Session:
             f"SINK_IP={SINK_IP}",
             IMAGE_TAG,
         ],
-        capture_output=True,
+        check=False, capture_output=True,
         text=True,
     )
     if run.returncode != 0:
@@ -192,7 +192,7 @@ def dns_log(session: Session) -> str:
     del session
     logs = subprocess.run(
         ["docker", "logs", SINK_CONTAINER_NAME],
-        capture_output=True,
+        check=False, capture_output=True,
         text=True,
     )
     if logs.returncode != 0:
@@ -205,7 +205,7 @@ def http_log(session: Session | None = None) -> str:
     global _cached_http_log
     result = subprocess.run(
         ["docker", "exec", SINK_CONTAINER_NAME, "cat", HTTP_LOG_PATH],
-        capture_output=True,
+        check=False, capture_output=True,
         text=True,
     )
     if result.returncode == 0:
@@ -235,13 +235,13 @@ def run_probe(session: Session, argv: list[str], timeout: int = 10) -> ProbeResu
                 PROBE_IMAGE,
                 *argv,
             ],
-            capture_output=True,
+            check=False, capture_output=True,
             text=True,
             timeout=timeout,
         )
         inspect = subprocess.run(
             ["docker", "inspect", name],
-            capture_output=True,
+            check=False, capture_output=True,
             text=True,
         )
         if inspect.returncode != 0:
@@ -264,7 +264,7 @@ def run_probe(session: Session, argv: list[str], timeout: int = 10) -> ProbeResu
     except subprocess.TimeoutExpired as exc:
         raise SinkError(f"probe timed out after {timeout}s") from exc
     finally:
-        subprocess.run(["docker", "rm", "-f", name], capture_output=True, text=True)
+        subprocess.run(["docker", "rm", "-f", name], check=False, capture_output=True, text=True)
 
 
 @contextmanager

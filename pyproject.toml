@@ -1,11 +1,26 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "skill-warden"
 version = "0.1.0"
-requires-python = ">=3.12"
-dependencies = ["clickhouse-connect", "httpx"]
+requires-python = ">=3.11"
+dependencies = [
+    "clickhouse-connect",
+    "httpx",
+    "semgrep>=1.180,<2",
+]
 
 [project.optional-dependencies]
-dev = ["pytest"]
+dev = ["pytest", "ruff"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
+addopts = "-m 'not docker and not live_llm and not packaging and not case_sensitive_fs'"
+markers = [
+    "docker: needs Docker, including the ClickHouse test container",
+    "live_llm: needs a live model API key",
+    "packaging: builds and installs a wheel",
+    "case_sensitive_fs: needs a case-sensitive filesystem",
+]

@@ -8,7 +8,13 @@ import pytest
 from skill_warden.findings import build_rows
 from skill_warden.hashing import content_hash
 from skill_warden.honeytoken import build_home, search_nonce
-from skill_warden.jail import container_argv, detonate, events_from_observation, phase_commands, plan
+from skill_warden.jail import (
+    container_argv,
+    detonate,
+    events_from_observation,
+    phase_commands,
+    plan,
+)
 from skill_warden.registry import SkillRecord
 from skill_warden.sink import SINK_IP
 from skill_warden.store import Store
@@ -227,13 +233,13 @@ def test_events_from_observation_maps_nonce_to_canary_row():
 
 
 def _ensure_container() -> None:
-    info = subprocess.run(["docker", "info"], capture_output=True, text=True)
+    info = subprocess.run(["docker", "info"], check=False, capture_output=True, text=True)
     if info.returncode != 0:
         pytest.fail(info.stderr)
 
     inspect = subprocess.run(
         ["docker", "inspect", "-f", "{{.State.Running}}", "skill-warden-ch-test"],
-        capture_output=True,
+        check=False, capture_output=True,
         text=True,
     )
     if inspect.returncode != 0:
@@ -260,7 +266,7 @@ def _ensure_container() -> None:
                 "CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1",
                 "clickhouse/clickhouse-server:26.9",
             ],
-            capture_output=True,
+            check=False, capture_output=True,
             text=True,
         )
         if started.returncode != 0:
@@ -268,7 +274,7 @@ def _ensure_container() -> None:
     elif inspect.stdout.strip() != "true":
         started = subprocess.run(
             ["docker", "start", "skill-warden-ch-test"],
-            capture_output=True,
+            check=False, capture_output=True,
             text=True,
         )
         if started.returncode != 0:
@@ -290,7 +296,7 @@ def _admin_client(clickhouse_connect):
             )
             admin.query("SELECT 1")
             return admin
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             last_error = str(exc)
             time.sleep(1)
     pytest.fail(last_error)
@@ -352,6 +358,7 @@ def _docker_sink_ready():
     yield
 
 
+@pytest.mark.docker
 def test_docker_detonate_steal_key_blocks(scanner, tmp_path: Path, _docker_sink_ready):
     run_id = uuid.uuid4()
     store = Store(scanner, secrets=[NONCE])
@@ -371,6 +378,7 @@ def test_docker_detonate_steal_key_blocks(scanner, tmp_path: Path, _docker_sink_
     assert store.verdict(run_id) == (decision, reason)
 
 
+@pytest.mark.docker
 def test_docker_detonate_clean_date_allow(scanner, tmp_path: Path, _docker_sink_ready):
     run_id = uuid.uuid4()
     store = Store(scanner, secrets=[NONCE])
@@ -390,6 +398,7 @@ def test_docker_detonate_clean_date_allow(scanner, tmp_path: Path, _docker_sink_
     assert store.verdict(run_id) == ("ALLOW", "clean")
 
 
+@pytest.mark.docker
 def test_docker_detonate_nonce_absent_from_clickhouse_excerpts(
     scanner, tmp_path: Path, _docker_sink_ready
 ):
@@ -410,6 +419,7 @@ def test_docker_detonate_nonce_absent_from_clickhouse_excerpts(
         assert NONCE not in excerpt
 
 
+@pytest.mark.docker
 def test_docker_steal_key_http_log_records_post_body(
     scanner, tmp_path: Path, _docker_sink_ready
 ):

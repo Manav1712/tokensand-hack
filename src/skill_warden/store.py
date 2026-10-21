@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from skill_warden.errors import RedactionError
@@ -25,7 +25,7 @@ class Store:
             [[
                 run_id,
                 skill_hash,
-                datetime.now(timezone.utc),
+                datetime.now(UTC),
                 None,
                 backend,
                 "running",

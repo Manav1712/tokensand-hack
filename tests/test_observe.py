@@ -1,7 +1,7 @@
 import hashlib
 
-from skill_warden.observe import events_from_diff, parse_strace, parse_strace_log
 from skill_warden.findings import build_rows
+from skill_warden.observe import events_from_diff, parse_strace, parse_strace_log
 
 SINK = "10.0.0.2"
 
@@ -151,12 +151,7 @@ def test_parse_strace_truncated_returns_none():
 
 
 def test_parse_strace_log_stitches_unfinished_openat():
-    text = "\n".join(
-        [
-            '[pid 12] openat(AT_FDCWD, "/home/agent/aws/credentials", O_RDONLY <unfinished ...>',
-            "[pid 12] <... openat resumed>) = -1 ENOENT (No such file or directory)",
-        ]
-    )
+    text = '[pid 12] openat(AT_FDCWD, "/home/agent/aws/credentials", O_RDONLY <unfinished ...>\n[pid 12] <... openat resumed>) = -1 ENOENT (No such file or directory)'
     records = parse_strace_log(text)
 
     assert len(records) == 1
@@ -166,14 +161,7 @@ def test_parse_strace_log_stitches_unfinished_openat():
 
 
 def test_parse_strace_log_interleaved_pids_keep_paths():
-    text = "\n".join(
-        [
-            '[pid 12] openat(AT_FDCWD, "/tmp/one", O_RDONLY <unfinished ...>',
-            '[pid 13] openat(AT_FDCWD, "/tmp/two", O_RDONLY <unfinished ...>',
-            "[pid 13] <... openat resumed>) = 4",
-            "[pid 12] <... openat resumed>) = 5",
-        ]
-    )
+    text = '[pid 12] openat(AT_FDCWD, "/tmp/one", O_RDONLY <unfinished ...>\n[pid 13] openat(AT_FDCWD, "/tmp/two", O_RDONLY <unfinished ...>\n[pid 13] <... openat resumed>) = 4\n[pid 12] <... openat resumed>) = 5'
     records = parse_strace_log(text)
 
     assert {record["path"]: record["ret"] for record in records} == {

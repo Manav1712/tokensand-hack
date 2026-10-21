@@ -4,8 +4,10 @@ from pathlib import Path
 
 import pytest
 
-from skill_warden.errors import SinkError
 from skill_warden import sink
+from skill_warden.errors import SinkError
+
+pytestmark = pytest.mark.docker
 
 NETWORK = sink.NETWORK_NAME
 SINK_IP = sink.SINK_IP
@@ -23,7 +25,7 @@ def _build_sink_image():
 
 
 def _docker(*args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(["docker", *args], capture_output=True, text=True)
+    return subprocess.run(["docker", *args], check=False, capture_output=True, text=True)
 
 
 def _network_exists(name: str) -> bool:

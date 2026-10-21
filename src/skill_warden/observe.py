@@ -26,7 +26,7 @@ _DIFF = {"A": "added", "C": "changed"}
 def parse_strace(line: str) -> dict | None:
     try:
         return _parse_strace(line)
-    except Exception:
+    except Exception:  # noqa: BLE001
         return None
 
 

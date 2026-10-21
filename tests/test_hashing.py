@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from skill_warden.hashing import content_hash
 from skill_warden.errors import SkillTreeError
+from skill_warden.hashing import content_hash
 
 
 def _expected_digest(files: list[tuple[str, bytes]]) -> str:

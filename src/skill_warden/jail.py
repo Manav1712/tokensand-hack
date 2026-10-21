@@ -7,12 +7,12 @@ import uuid
 from pathlib import Path
 from uuid import UUID
 
+from skill_warden import sink
 from skill_warden.errors import JailError, SkillTreeError
 from skill_warden.findings import build_rows
 from skill_warden.honeytoken import build_home, search_nonce
 from skill_warden.observe import events_from_diff, parse_strace_log
 from skill_warden.registry import SkillRecord
-from skill_warden import sink
 
 _PIDS_LIMIT = "128"
 _MEMORY = "256m"
@@ -180,7 +180,7 @@ def _skill_files(root: Path) -> list[Path]:
 
 
 def _run(args: list[str], *, timeout: int | None = None, check: bool = True) -> subprocess.CompletedProcess[str]:
-    result = subprocess.run(args, capture_output=True, text=True, timeout=timeout)
+    result = subprocess.run(args, check=False, capture_output=True, text=True, timeout=timeout)
     if check and result.returncode != 0:
         raise JailError(result.stderr.strip() or " ".join(args))
     return result
@@ -189,7 +189,7 @@ def _run(args: list[str], *, timeout: int | None = None, check: bool = True) -> 
 def build_jail_image() -> None:
     build = subprocess.run(
         ["docker", "build", "-t", JAIL_IMAGE, str(_JAIL_BUILD_CONTEXT)],
-        capture_output=True,
+        check=False, capture_output=True,
         text=True,
     )
     if build.returncode != 0:
@@ -214,7 +214,7 @@ def _stream_tree_into_container(container: str, host_root: Path, dest: str) -> N
                 tar.add(host_path, arcname=rel, recursive=False)
     streamed = subprocess.run(
         ["docker", "exec", "-i", container, "tar", "x", "-o", "-f", "-", "-C", dest],
-        input=buf.getvalue(),
+        check=False, input=buf.getvalue(),
         capture_output=True,
     )
     if streamed.returncode != 0:
@@ -265,12 +265,12 @@ def detonate(
         create_body = argv[2:]
         create = subprocess.run(
             ["docker", "create", "--name", container, *create_body],
-            capture_output=True,
+            check=False, capture_output=True,
             text=True,
         )
         if create.returncode != 0:
             raise JailError(create.stderr.strip() or "docker create failed")
-        start = subprocess.run(["docker", "start", container], capture_output=True, text=True)
+        start = subprocess.run(["docker", "start", container], check=False, capture_output=True, text=True)
         if start.returncode != 0:
             raise JailError(start.stderr.strip() or "docker start failed")
         if on_ready is not None:
@@ -280,7 +280,7 @@ def detonate(
         with (scratch / "skill.tar").open("rb") as skill_tar_file:
             streamed = subprocess.run(
                 ["docker", "exec", "-i", container, "tar", "x", "-o", "-f", "-", "-C", SKILL_ROOT],
-                input=skill_tar_file.read(),
+                check=False, input=skill_tar_file.read(),
                 capture_output=True,
             )
         if streamed.returncode != 0:
@@ -304,7 +304,7 @@ def detonate(
         manifest_bytes = manifest.read_bytes()
         cp_manifest = subprocess.run(
             ["docker", "exec", "-i", container, "tee", "/tmp/jail-commands.txt"],
-            input=manifest_bytes,
+            check=False, input=manifest_bytes,
             capture_output=True,
         )
         if cp_manifest.returncode != 0:
@@ -313,19 +313,19 @@ def detonate(
         try:
             traced = subprocess.run(
                 ["docker", "exec", container, "/warden/run-phase.sh"],
-                capture_output=True,
+                check=False, capture_output=True,
                 text=True,
                 timeout=timeout,
             )
             strace_text = traced.stdout + traced.stderr
         except subprocess.TimeoutExpired:
             timed_out = True
-            subprocess.run(["docker", "kill", container], capture_output=True, text=True)
+            subprocess.run(["docker", "kill", container], check=False, capture_output=True, text=True)
             strace_text = ""
 
         diff = subprocess.run(
             ["docker", "diff", container],
-            capture_output=True,
+            check=False, capture_output=True,
             text=True,
         )
         diff_lines = diff.stdout.splitlines() if diff.returncode == 0 else []
@@ -356,5 +356,5 @@ def detonate(
         store.finish_run(run_id, finish_status)
         return store.verdict(run_id)
     finally:
-        subprocess.run(["docker", "rm", "-f", container], capture_output=True, text=True)
+        subprocess.run(["docker", "rm", "-f", container], check=False, capture_output=True, text=True)
         sink.stop(session)
