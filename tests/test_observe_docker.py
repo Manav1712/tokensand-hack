@@ -9,6 +9,8 @@ pytestmark = pytest.mark.docker
 
 _IMAGE = "skill-warden-observe:step16"
 _DIFF_NAME = "skill-warden-observe-diff"
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+_OBSERVE_CONTEXT = _REPO_ROOT / "docker" / "observe"
 _STRACE_ARGV = [
     "docker",
     "run",
@@ -19,9 +21,21 @@ _STRACE_ARGV = [
     "strace",
     "-f",
     "-e",
-    "trace=openat",
+    "trace=open,openat",
     "true",
 ]
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _build_observe_image():
+    built = subprocess.run(
+        ["docker", "build", "-t", _IMAGE, str(_OBSERVE_CONTEXT)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if built.returncode != 0:
+        pytest.fail(built.stderr.strip() or built.stdout)
 
 
 def _require_docker() -> None:
@@ -77,7 +91,7 @@ def test_strace_openat_parses_under_cap_drop_all():
             "strace",
             "-f",
             "-e",
-            "trace=openat",
+            "trace=open,openat",
             "cat",
             "/etc/alpine-release",
         ],
@@ -87,7 +101,7 @@ def test_strace_openat_parses_under_cap_drop_all():
     )
     if traced.returncode != 0:
         pytest.fail(traced.stderr)
-    assert "openat" in traced.stderr
+    assert "openat" in traced.stderr or 'open("' in traced.stderr
     events = parse_strace_log(traced.stderr)
     assert any(
         event.get("syscall") == "openat" and event.get("path") == "/etc/alpine-release"

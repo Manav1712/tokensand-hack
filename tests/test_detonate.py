@@ -123,6 +123,20 @@ def test_events_from_observation_honeytoken_open_on_successful_read():
     assert {"kind": "honeytoken_open"} in events
 
 
+def test_events_from_observation_honeytoken_open_from_open_syscall():
+    strace = f'open("{PLANT_ABS}", O_RDONLY|O_LARGEFILE) = 3'
+    events = events_from_observation(
+        strace_text=strace,
+        diff_lines=[],
+        plant_paths=[PLANT_REL],
+        blobs={},
+        nonce=NONCE,
+        sink=SINK_IP,
+    )
+
+    assert {"kind": "honeytoken_open"} in events
+
+
 def test_events_from_observation_enoent_open_not_honeytoken():
     strace = (
         f'openat(AT_FDCWD, "{PLANT_ABS}", O_RDONLY) = -1 ENOENT (No such file or directory)'

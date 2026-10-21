@@ -6,9 +6,12 @@ Read this first when you come back. The plan is `docs/milestones.md`, the design
 
 Newest first. Two lines per session: where you stopped, and what's next.
 
+- **2026-10-21:**
+  - **Stopped:** Fixed the PR CI failure. GitHub failed because `skill-warden-observe:step16` was never built on a clean runner. Also fixed x86_64 Alpine using `open` instead of `openat`: the parser and jail strace filter now cover both. `.venv/bin/python scripts/ci.py pr` exits 0 locally (120 + 56).
+  - **Next:** M1-03 Minimal domain types.
 - **2026-10-20:**
-  - **Stopped:** M1-01 and M1-02 are in the working tree, not committed. `DOCKER_HOST=unix:///nonexistent.sock .venv/bin/python -m pytest -q` exits 0 (118 passed, 56 deselected). `.venv/bin/python scripts/ci.py pr` exits 1. The docker step fails `tests/test_observe_docker.py::test_strace_openat_parses_under_cap_drop_all` for the third time: `assert 'openat' in '+++ exited with 0 +++'` while `cat` printed `3.20.10`. Guess: on this x86_64 host, Alpine `cat` uses the `open` syscall, so `strace -e trace=openat` prints no `openat` line. The same read is `openat` on aarch64, where the 169-test baseline passed. The test body was not changed.
-  - **Next:** Decide what that strace test should do on x86_64. Then M1-03, minimal domain types.
+  - **Stopped:** M1-01 and M1-02 landed. `scripts/ci.py pr` failed one x86_64 strace test; see the 2026-10-21 note for the fix.
+  - **Next:** Fix the CI observe-image / openat failure.
 - **2026-10-19:**
   - **Stopped:** docs consolidated into one architecture, one milestone plan, one progress file and 15 decision records. No code changed.
   - **Next:** M1-01, declared dependencies and test markers. Run `PATH=.venv/bin:$PATH python -m pytest tests -q` first to confirm the baseline still passes 169.
@@ -17,8 +20,8 @@ Newest first. Two lines per session: where you stopped, and what's next.
 
 Limit: one task in **Now**, two at most.
 
-- **Now:** M1-02 `scripts/ci.py` is written; `pr` is blocked on the x86_64 `openat` test above.
-- **Next:** M1-03 Minimal domain types; M1-04 Crude policy.
+- **Now:** M1-03 Minimal domain types.
+- **Next:** M1-04 Crude policy; M1-05 Package the rules.
 - **Later:** the rest of M1, then M2–M10 in order.
 
 ## Milestones
@@ -26,7 +29,7 @@ Limit: one task in **Now**, two at most.
 | Milestone | State | Notes |
 | --- | --- | --- |
 | M0 Hackathon baseline | done | 169 tests passed on 14 October 2026. Commits `8a0f168` (code) and `3274e8b` (plans) |
-| M1 Walking skeleton | in progress | Default pytest no longer needs Docker. `scripts/ci.py pr` is blocked on one x86_64 strace test |
+| M1 Walking skeleton | in progress | M1-01 and M1-02 done. Default pytest skips Docker; `scripts/ci.py pr` exits 0 |
 | M2 Fail-closed core | not started | |
 | M3 Detection quality | not started | |
 | M4 Bring your own model | not started | |

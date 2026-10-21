@@ -23,6 +23,12 @@ def test_parse_strace_openat_success():
     assert got == {"syscall": "openat", "path": "/etc/ld.so.cache", "ret": "3"}
 
 
+def test_parse_strace_open_normalized_to_openat():
+    got = parse_strace('open("/etc/alpine-release", O_RDONLY|O_LARGEFILE) = 3')
+
+    assert got == {"syscall": "openat", "path": "/etc/alpine-release", "ret": "3"}
+
+
 def test_parse_strace_openat_enoent_kept():
     got = parse_strace(
         'openat(AT_FDCWD, "/home/agent/aws/credentials", O_RDONLY) = -1 ENOENT (No such file or directory)'
