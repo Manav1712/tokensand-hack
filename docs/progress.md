@@ -6,6 +6,9 @@ Read this first when you come back. The plan is `docs/milestones.md`, the design
 
 Newest first. Two lines per session: where you stopped, and what's next.
 
+- **2026-10-22:**
+  - **Stopped:** M1-03 added frozen Finding, Verdict, and Report. A scanner row converts to a Finding and back, including source `policy` and the evidence hash.
+  - **Next:** M1-04 Crude policy.
 - **2026-10-21:**
   - **Stopped:** Fixed the PR CI failure. GitHub failed because `skill-warden-observe:step16` was never built on a clean runner. Also fixed x86_64 Alpine using `open` instead of `openat`: the parser and jail strace filter now cover both. `.venv/bin/python scripts/ci.py pr` exits 0 locally (120 + 56).
   - **Next:** M1-03 Minimal domain types.
@@ -20,8 +23,8 @@ Newest first. Two lines per session: where you stopped, and what's next.
 
 Limit: one task in **Now**, two at most.
 
-- **Now:** M1-03 Minimal domain types.
-- **Next:** M1-04 Crude policy; M1-05 Package the rules.
+- **Now:** M1-04 Crude policy.
+- **Next:** M1-05 Package the rules; M1-06 Crude pipeline.
 - **Later:** the rest of M1, then M2–M10 in order.
 
 ## Milestones
@@ -29,7 +32,7 @@ Limit: one task in **Now**, two at most.
 | Milestone | State | Notes |
 | --- | --- | --- |
 | M0 Hackathon baseline | done | 169 tests passed on 14 October 2026. Commits `8a0f168` (code) and `3274e8b` (plans) |
-| M1 Walking skeleton | in progress | M1-01 and M1-02 done. Default pytest skips Docker; `scripts/ci.py pr` exits 0 |
+| M1 Walking skeleton | in progress | M1-01 through M1-03 done. Default pytest skips Docker; `scripts/ci.py pr` exits 0 |
 | M2 Fail-closed core | not started | |
 | M3 Detection quality | not started | |
 | M4 Bring your own model | not started | |
