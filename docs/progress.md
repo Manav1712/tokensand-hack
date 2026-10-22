@@ -7,6 +7,9 @@ Read this first when you come back. The plan is `docs/milestones.md`, the design
 Newest first. Two lines per session: where you stopped, and what's next.
 
 - **2026-10-22:**
+  - **Stopped:** M1-04. `policy.decide` picks BLOCK, ASK, or ALLOW from findings, requested stages, and how the run ended. The 19 ClickHouse cases plus the reader and detonation gaps pass with no database.
+  - **Next:** M1-05 Package the rules.
+- **2026-10-22:**
   - **Stopped:** M1-03 added frozen Finding, Verdict, and Report. A scanner row converts to a Finding and back, including source `policy` and the evidence hash.
   - **Next:** M1-04 Crude policy.
 - **2026-10-21:**
@@ -23,8 +26,8 @@ Newest first. Two lines per session: where you stopped, and what's next.
 
 Limit: one task in **Now**, two at most.
 
-- **Now:** M1-04 Crude policy.
-- **Next:** M1-05 Package the rules; M1-06 Crude pipeline.
+- **Now:** M1-05 Package the rules.
+- **Next:** M1-06 Crude pipeline.
 - **Later:** the rest of M1, then M2–M10 in order.
 
 ## Milestones
@@ -32,7 +35,7 @@ Limit: one task in **Now**, two at most.
 | Milestone | State | Notes |
 | --- | --- | --- |
 | M0 Hackathon baseline | done | 169 tests passed on 14 October 2026. Commits `8a0f168` (code) and `3274e8b` (plans) |
-| M1 Walking skeleton | in progress | M1-01 through M1-03 done. Default pytest skips Docker; `scripts/ci.py pr` exits 0 |
+| M1 Walking skeleton | in progress | M1-01 through M1-04 done. Default pytest skips Docker; `scripts/ci.py pr` exits 0 |
 | M2 Fail-closed core | not started | |
 | M3 Detection quality | not started | |
 | M4 Bring your own model | not started | |
