@@ -24,13 +24,14 @@ from skill_warden.honeytoken import build_home, search_nonce
 from skill_warden.jail import JAIL_IMAGE, plan
 from skill_warden.orchestrator import Orchestrator
 from skill_warden.registry import SkillRecord
+from skill_warden.semgrep import rule_path
 from skill_warden.semgrep import scan as semgrep_scan
 from skill_warden.sink import SINK_IP
 from skill_warden.store import Store
 from skill_warden.verdict import load_sql
 
 SKILLS = ROOT / "fixtures" / "skills"
-RULES = ROOT / "rules" / "memory.yaml"
+RULES = rule_path()
 OUT = ROOT / "demo" / "src" / "data" / "traces.json"
 NONCE = "FAKE-CANARY-NONCE-DEMO"
 
