@@ -8,12 +8,13 @@ from skill_warden.breaker import Breaker
 from skill_warden.hashing import content_hash
 from skill_warden.orchestrator import Orchestrator
 from skill_warden.registry import SkillRecord
+from skill_warden.semgrep import rule_path
 from skill_warden.store import Store
 
 pytestmark = pytest.mark.docker
 
 ROOT = Path(__file__).resolve().parents[1]
-RULES = ROOT / "rules" / "memory.yaml"
+RULES = rule_path()
 MEMORY = ROOT / "fixtures" / "skills" / "memory-poison"
 CLEAN = ROOT / "fixtures" / "skills" / "clean-date"
 AUDITED = ROOT / "fixtures" / "skills" / "audited-exfil"

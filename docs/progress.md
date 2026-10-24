@@ -6,6 +6,9 @@ Read this first when you come back. The plan is `docs/milestones.md`, the design
 
 Newest first. Two lines per session: where you stopped, and what's next.
 
+- **2026-10-24:**
+  - **Stopped:** M1-05. The memory rule ships in the package. `rule_path()` loads it with `importlib.resources`, and a scan from an installed wheel finds `skill-memory-file-persistence`.
+  - **Next:** M1-06 Crude pipeline.
 - **2026-10-22:**
   - **Stopped:** M1-04. `policy.decide` picks BLOCK, ASK, or ALLOW from findings, requested stages, and how the run ended. The 19 ClickHouse cases plus the reader and detonation gaps pass with no database.
   - **Next:** M1-05 Package the rules.
@@ -26,8 +29,8 @@ Newest first. Two lines per session: where you stopped, and what's next.
 
 Limit: one task in **Now**, two at most.
 
-- **Now:** M1-05 Package the rules.
-- **Next:** M1-06 Crude pipeline.
+- **Now:** M1-06 Crude pipeline.
+- **Next:** M1-07 Detonation without ClickHouse.
 - **Later:** the rest of M1, then M2–M10 in order.
 
 ## Milestones
@@ -35,7 +38,7 @@ Limit: one task in **Now**, two at most.
 | Milestone | State | Notes |
 | --- | --- | --- |
 | M0 Hackathon baseline | done | 169 tests passed on 14 October 2026. Commits `8a0f168` (code) and `3274e8b` (plans) |
-| M1 Walking skeleton | in progress | M1-01 through M1-04 done. Default pytest skips Docker; `scripts/ci.py pr` exits 0 |
+| M1 Walking skeleton | in progress | M1-01 through M1-05 done. Default pytest skips Docker; `scripts/ci.py pr` exits 0 |
 | M2 Fail-closed core | not started | |
 | M3 Detection quality | not started | |
 | M4 Bring your own model | not started | |

@@ -16,11 +16,12 @@ from skill_warden.jail import (
     plan,
 )
 from skill_warden.registry import SkillRecord
+from skill_warden.semgrep import rule_path
 from skill_warden.sink import SINK_IP
 from skill_warden.store import Store
 
 ROOT = Path(__file__).resolve().parents[1]
-RULES = ROOT / "rules" / "memory.yaml"
+RULES = rule_path()
 STEAL_KEY = ROOT / "fixtures" / "skills" / "steal-key"
 CLEAN = ROOT / "fixtures" / "skills" / "clean-date"
 JAIL_IMAGE = "warden/jail:latest"

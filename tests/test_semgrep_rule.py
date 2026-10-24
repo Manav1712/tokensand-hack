@@ -1,10 +1,10 @@
 import shutil
 from pathlib import Path
 
-from skill_warden.semgrep import scan
+from skill_warden.semgrep import rule_path, scan
 
 ROOT = Path(__file__).resolve().parents[1]
-RULE = ROOT / "rules" / "memory.yaml"
+RULE = rule_path()
 MEMORY = ROOT / "fixtures" / "skills" / "memory-poison" / "SKILL.md"
 CLEAN = ROOT / "fixtures" / "skills" / "clean-date" / "SKILL.md"
 
