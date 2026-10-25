@@ -4,7 +4,7 @@ Read this first when you come back. The plan is `docs/milestones.md`, the design
 
 ## Re-entry note
 
-Newest first. Two lines per session: where you stopped, and what's next.
+Newest first. Two lines per session: where you stopped, and what's next. **Stopped** is the last thing that session finished. The task in that line landed. The open task is **Now** on the board.
 
 - **2026-10-24:**
   - **Stopped:** M1-06 and M1-07. `scan_skill` hashes a folder, runs Semgrep, maps findings, and asks the policy. A thrown stage is BLOCK `not_finished`, and `scan` continues with the next skill. `MemoryStore` is the jail's store, so detonation does not need ClickHouse.
@@ -67,25 +67,30 @@ State is one of `not started`, `in progress`, `done` or `blocked`. A milestone i
 
 ## What the code is today
 
-The hackathon build, unchanged since commit `8a0f168`:
+Commit `ae13381`. M1-01 through M1-07 are in the tree. There is no `skill-warden` command and no history file yet (M1-08, M1-09).
 
-- **Pipeline:**
+- **Walking skeleton:**
+  - `pipeline.scan_skill` hashes the folder (`hashing.content_hash`, still v1), runs Semgrep, maps rows to frozen `Finding`s (`models.py`), and asks `policy.decide`;
+  - the memory rule is `src/skill_warden/rules/memory.yaml`, loaded by `semgrep.rule_path()` through `importlib.resources`;
+  - an optional reader is `reader.Reader`. An optional detonation calls `jail.detonate` with a `MemoryStore`, and `MemoryStore.verdict` calls `policy.decide`. That path does not use ClickHouse;
+  - a thrown stage returns BLOCK `not_finished`, and `scan` continues with the next skill.
+- **Hackathon path, still present until M2:**
   - `orchestrator.py` runs host Semgrep (`semgrep.py`) and the reader (`reader.py`, AkashML defaults), then maps everything through `findings.build_rows`;
   - rows are inserted into ClickHouse (`store.py`), and `schema/verdict.sql` picks the verdict.
 - **Jail:**
   - `jail.detonate` packs the skill and plants a honeytoken home (`honeytoken.py`);
   - it starts a DNS and HTTP sink on the fixed network `jailnet` (`sink.py`) and runs `scripts/*.sh` and `SKILL.md` blocks under strace in a hardened Alpine container;
-  - it parses the trace and the diff (`observe.py`), and writes to the store.
-- **Also present:** `hashing.py` (v1 hash), `registry.py`, `redact.py`, `breaker.py` and `memory.py` (hackathon-only), plus `demo/` (out of scope).
-- **Tests:** 169, most needing Docker and the ClickHouse container. No CI.
-- **Known defects:** the 21 rows of architecture §17.1. Each is fixed by a milestone task.
+  - it parses the trace and the diff (`observe.py`), and writes to the store it was given (`MemoryStore` or ClickHouse).
+- **Also present:** `registry.py`, `redact.py`, `breaker.py` and `memory.py` (hackathon-only), plus `demo/` (out of scope). No `cli.py` and no `history.py`.
+- **Tests:** On 25 October 2026 the default suite passed 173 and deselected 58 (57 `docker`, 1 `packaging`). `python scripts/ci.py pr` is lint, that default suite, then `pytest -m docker`.
+- **Known defects:** the 21 rows of architecture §17.1. M1 did not close them, except that the Semgrep rule path in row 10 now uses `importlib.resources`. Docker contexts and `verdict.sql` still use the old lookup. Each remaining row is fixed by a later milestone task.
 
 ## Things to know before you start
 
 - Semgrep 1.180.0 lives in `.venv/bin`. Put it on `PATH` (`PATH=.venv/bin:$PATH`) until M2-11 resolves it next to `sys.executable`.
 - The ClickHouse test container `skill-warden-ch-test` runs on port 18123, with admin and `scanner` passwords `test`. The old tests need it until M2-14 removes ClickHouse.
 - The baseline ran on Python 3.14.7 with Docker 28.5.1. The design targets Python ≥ 3.11.
-- The git remote is `origin` on Cursor, not GitHub. All CI logic goes in `scripts/ci.py` (decision 0014), so the gates run locally. The workflow files only matter once the repository is on GitHub.
+- The git remote is `origin` on GitHub (`Manav1712/tokensand-hack`). CI logic stays in `scripts/ci.py` (decision 0014). `.github/workflows/pr.yml` only calls `python scripts/ci.py pr`.
 - Never commit a real key. Fixtures use `example.invalid`, `EXAMPLE_TOKEN` and `FAKE-CANARY`.
 
 ## History
@@ -97,3 +102,9 @@ The hackathon build, unchanged since commit `8a0f168`:
 | 2026-10-16 | Detonation research folded into the plan: isolation check, lived-in home, value-flow canaries, answering sink, phases, agent turn, profiles, evaluation. |
 | 2026-10-19 | Architecture audit. Operator decisions: two releases, manual approvals, a local or hosted agent model, per-command time limits with slow meaning ASK, medium probe severities, a Debian jail, hash v2, frontmatter read twice, a root-only trace channel, bounded capture, and layered test gates (decisions 0002 and 0005–0014). |
 | 2026-10-19 | Docs consolidated. The work is organized as a walking skeleton plus milestones (decision 0015). The old guides are retired and live in git history at `3274e8b`. |
+| 2026-10-20 | M1-01 and M1-02. Dependencies and markers are declared. `scripts/ci.py` runs lint, the default tests, and the Docker tests. `.github/workflows/pr.yml` calls `pr`. |
+| 2026-10-21 | The PR check builds the observe image on a clean runner. The strace parser covers Alpine `open` and `openat`. |
+| 2026-10-22 | M1-03. Frozen Finding, Verdict, and Report in `models.py`. |
+| 2026-10-22 | M1-04. `policy.decide` ports the verdict SQL. The 19 cases pass with no ClickHouse. |
+| 2026-10-24 | M1-05. The memory rule ships in the package and loads through `importlib.resources`. |
+| 2026-10-24 | M1-06 and M1-07. `pipeline.scan_skill` and `MemoryStore`. A thrown stage is BLOCK `not_finished`. Detonation does not need ClickHouse. |
