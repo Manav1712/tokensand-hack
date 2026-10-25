@@ -6,6 +6,9 @@ Read this first when you come back. The plan is `docs/milestones.md`, the design
 
 Newest first. Two lines per session: where you stopped, and what's next.
 
+- **2026-10-25:**
+  - **Stopped:** M1-08. Each scan appends one row to `<data dir>/history.sqlite3` with the skill path, content hash, decision, reason, and report. `history=False` writes nothing. A failed write prints a warning and leaves the report unchanged.
+  - **Next:** M1-09 `skill-warden scan`.
 - **2026-10-24:**
   - **Stopped:** M1-06 and M1-07. `scan_skill` hashes a folder, runs Semgrep, maps findings, and asks the policy. A thrown stage is BLOCK `not_finished`, and `scan` continues with the next skill. `MemoryStore` is the jail's store, so detonation does not need ClickHouse.
   - **Next:** M1-08 Crude history.
@@ -32,8 +35,8 @@ Newest first. Two lines per session: where you stopped, and what's next.
 
 Limit: one task in **Now**, two at most.
 
-- **Now:** M1-08 Crude history.
-- **Next:** M1-09 `skill-warden scan`.
+- **Now:** M1-09 `skill-warden scan`.
+- **Next:** M1-10 Install smoke test.
 - **Later:** the rest of M1, then M2–M10 in order.
 
 ## Milestones
@@ -41,7 +44,7 @@ Limit: one task in **Now**, two at most.
 | Milestone | State | Notes |
 | --- | --- | --- |
 | M0 Hackathon baseline | done | 169 tests passed on 14 October 2026. Commits `8a0f168` (code) and `3274e8b` (plans) |
-| M1 Walking skeleton | in progress | M1-01 through M1-07 done. Default pytest skips Docker; `scripts/ci.py pr` exits 0 |
+| M1 Walking skeleton | in progress | M1-01 through M1-08 done. Default pytest skips Docker; `scripts/ci.py pr` exits 0 |
 | M2 Fail-closed core | not started | |
 | M3 Detection quality | not started | |
 | M4 Bring your own model | not started | |

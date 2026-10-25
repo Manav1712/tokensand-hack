@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 import secrets
+import sqlite3
+import sys
 from collections.abc import Sequence
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -9,6 +11,7 @@ from uuid import uuid4
 
 from skill_warden.findings import build_rows
 from skill_warden.hashing import content_hash
+from skill_warden.history import record
 from skill_warden.jail import detonate as jail_detonate
 from skill_warden.memory_store import MemoryStore
 from skill_warden.models import Finding, Report, Verdict
@@ -21,11 +24,22 @@ from skill_warden.semgrep import scan as semgrep_scan
 _STATIC = frozenset({"static"})
 
 
-def scan_skill(path: Path, *, llm: object = None, detonate: bool = False) -> Report:
+def scan_skill(
+    path: Path,
+    *,
+    llm: object = None,
+    detonate: bool = False,
+    history: bool = True,
+) -> Report:
+    content_sha256: str | None = None
     try:
-        return _scan_skill(path, llm=llm, detonate=detonate)
+        content_sha256 = content_hash(Path(path))
+        report = _scan_skill(path, content_sha256, llm=llm, detonate=detonate)
     except Exception:  # noqa: BLE001
-        return Report((), Verdict("BLOCK", "not_finished"))
+        report = Report((), Verdict("BLOCK", "not_finished"))
+    if history:
+        _save_history(path, report, content_sha256)
+    return report
 
 
 def scan(
@@ -33,13 +47,22 @@ def scan(
     *,
     llm: object = None,
     detonate: bool = False,
+    history: bool = True,
 ) -> tuple[Report, ...]:
-    return tuple(scan_skill(path, llm=llm, detonate=detonate) for path in paths)
+    return tuple(
+        scan_skill(path, llm=llm, detonate=detonate, history=history) for path in paths
+    )
 
 
-def _scan_skill(path: Path, *, llm: object, detonate: bool) -> Report:
+def _save_history(path: Path, report: Report, content_sha256: str | None) -> None:
+    try:
+        record(path, report, content_sha256)
+    except (sqlite3.Error, OSError) as exc:
+        print(f"warning: history was not saved: {exc}", file=sys.stderr)
+
+
+def _scan_skill(path: Path, skill_hash: str, *, llm: object, detonate: bool) -> Report:
     root = Path(path)
-    skill_hash = content_hash(root)
     files = _skill_files(root)
     semgrep_report = semgrep_scan(files, rule_path())
     reader_body = _reader_body(llm, files) if llm is not None else None
