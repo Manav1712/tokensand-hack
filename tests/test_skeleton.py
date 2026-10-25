@@ -12,7 +12,8 @@ from skill_warden.models import Report, Severity, Source, Verdict
 from skill_warden.pipeline import scan, scan_skill
 from skill_warden.reader import ReaderResult
 from skill_warden.registry import SkillRecord
-from skill_warden.semgrep import rule_path, scan as semgrep_scan
+from skill_warden.semgrep import rule_path
+from skill_warden.semgrep import scan as semgrep_scan
 
 ROOT = Path(__file__).resolve().parents[1]
 MEMORY = ROOT / "fixtures" / "skills" / "memory-poison"
