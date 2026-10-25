@@ -166,13 +166,9 @@ def test_failed_write_warns_and_keeps_the_report(
 
     captured = capsys.readouterr()
     assert saved == quiet
-    warning = next(
-        line
-        for line in captured.err.splitlines()
-        if line.startswith("warning: history was not saved:")
-    )
-    assert "Format the current date" not in warning
-    assert "YYYY-MM-DD" not in warning
+    assert captured.err == "history write failed\n"
+    assert "Format the current date" not in captured.err
+    assert "YYYY-MM-DD" not in captured.err
 
 
 def test_failure_before_the_hash_stores_null(

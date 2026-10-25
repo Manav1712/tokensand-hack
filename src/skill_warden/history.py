@@ -3,12 +3,14 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
 from skill_warden.models import Report
 from skill_warden.paths import data_dir
+from skill_warden.redact import redact
 
 _CREATE = """
 CREATE TABLE IF NOT EXISTS runs (
@@ -29,9 +31,15 @@ INSERT INTO runs (
 """
 
 
-def record(path: Path, report: Report, content_sha256: str | None) -> None:
+def record(
+    path: Path,
+    report: Report,
+    content_sha256: str | None,
+    secrets: Sequence[str] | None = None,
+) -> None:
     directory = data_dir()
     directory.mkdir(parents=True, exist_ok=True)
+    hidden = list(secrets or ())
     payload = {
         "findings": [finding.to_row() for finding in report.findings],
         "verdict": {
@@ -46,11 +54,11 @@ def record(path: Path, report: Report, content_sha256: str | None) -> None:
             _INSERT,
             (
                 str(uuid4()),
-                os.fspath(Path(path)),
+                redact(os.fspath(Path(path)), hidden),
                 content_sha256,
                 report.verdict.decision,
                 report.verdict.reason,
-                json.dumps(payload, sort_keys=True),
+                redact(json.dumps(payload, sort_keys=True), hidden),
                 datetime.now(UTC).isoformat(),
             ),
         )

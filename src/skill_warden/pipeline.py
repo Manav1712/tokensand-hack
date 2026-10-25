@@ -30,15 +30,23 @@ def scan_skill(
     llm: object = None,
     detonate: bool = False,
     history: bool = True,
+    secrets: Sequence[str] | None = None,
 ) -> Report:
     content_sha256: str | None = None
+    redactions = list(secrets or ())
     try:
         content_sha256 = content_hash(Path(path))
-        report = _scan_skill(path, content_sha256, llm=llm, detonate=detonate)
+        report = _scan_skill(
+            path,
+            content_sha256,
+            llm=llm,
+            detonate=detonate,
+            redactions=redactions,
+        )
     except Exception:  # noqa: BLE001
         report = Report((), Verdict("BLOCK", "not_finished"))
     if history:
-        _save_history(path, report, content_sha256)
+        _save_history(path, report, content_sha256, redactions)
     return report
 
 
@@ -48,31 +56,45 @@ def scan(
     llm: object = None,
     detonate: bool = False,
     history: bool = True,
+    secrets: Sequence[str] | None = None,
 ) -> tuple[Report, ...]:
     return tuple(
-        scan_skill(path, llm=llm, detonate=detonate, history=history) for path in paths
+        scan_skill(path, llm=llm, detonate=detonate, history=history, secrets=secrets)
+        for path in paths
     )
 
 
-def _save_history(path: Path, report: Report, content_sha256: str | None) -> None:
+def _save_history(
+    path: Path,
+    report: Report,
+    content_sha256: str | None,
+    redactions: Sequence[str],
+) -> None:
     try:
-        record(path, report, content_sha256)
-    except (sqlite3.Error, OSError) as exc:
-        print(f"warning: history was not saved: {exc}", file=sys.stderr)
+        record(path, report, content_sha256, redactions)
+    except (sqlite3.Error, OSError):
+        print("history write failed", file=sys.stderr)
 
 
-def _scan_skill(path: Path, skill_hash: str, *, llm: object, detonate: bool) -> Report:
+def _scan_skill(
+    path: Path,
+    skill_hash: str,
+    *,
+    llm: object,
+    detonate: bool,
+    redactions: list[str],
+) -> Report:
     root = Path(path)
     files = _skill_files(root)
     semgrep_report = semgrep_scan(files, rule_path())
     reader_body = _reader_body(llm, files) if llm is not None else None
     if not detonate:
-        rows = build_rows(semgrep=semgrep_report, reader=reader_body)
+        rows = build_rows(semgrep=semgrep_report, reader=reader_body, secrets=redactions)
         return _report(rows)
-    return _detonate(root, skill_hash, reader_body)
+    return _detonate(root, skill_hash, reader_body, redactions)
 
 
-def _detonate(root: Path, skill_hash: str, reader_body: object) -> Report:
+def _detonate(root: Path, skill_hash: str, reader_body: object, redactions: list[str]) -> Report:
     nonce = secrets.token_hex(16)
     store = MemoryStore(secrets=[nonce])
     record = SkillRecord(
@@ -93,7 +115,7 @@ def _detonate(root: Path, skill_hash: str, reader_body: object) -> Report:
             scratch=Path(scratch),
         )
     if reader_body is not None:
-        store.insert_findings(run_id, build_rows(reader=reader_body))
+        store.insert_findings(run_id, build_rows(reader=reader_body, secrets=redactions))
     decision, reason = store.verdict(run_id)
     rows = store._findings.get(run_id, [])
     findings = tuple(Finding.from_row(row) for row in rows)
