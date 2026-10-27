@@ -6,6 +6,9 @@ Read this first when you come back. The plan is `docs/milestones.md`, the design
 
 Newest first. Two lines per session: where you stopped, and what's next.
 
+- **2026-10-27:**
+  - **Stopped:** M1-09 and M1-10. `skill-warden scan` takes one or more skill directories, optional `--llm PROVIDER:MODEL` with `--llm-base-url` and `--llm-key-env`, `--detonate`, `--format text|json`, and `--no-history`. Several paths exit with the worst verdict. JSON uses the `skill-warden/scan@1` envelope. A key in the environment is redacted from the output. Bad input exits 2 and scans nothing. `pytest -m packaging` builds a wheel, installs it into a fresh venv, and scans a copied fixture from outside the repository.
+  - **Next:** M2-01 Coverage and Hypothesis. M1 acceptance is still open for `pipx install` and for `scan --detonate` from the CLI.
 - **2026-10-25:**
   - **Stopped:** M1-08. Each scan appends one row to `<data dir>/history.sqlite3` with the skill path, content hash, decision, reason, and report. `history=False` writes nothing. A failed write prints a warning and leaves the report unchanged.
   - **Next:** M1-09 `skill-warden scan`.
@@ -35,16 +38,16 @@ Newest first. Two lines per session: where you stopped, and what's next.
 
 Limit: one task in **Now**, two at most.
 
-- **Now:** M1-09 `skill-warden scan`.
-- **Next:** M1-10 Install smoke test.
-- **Later:** the rest of M1, then M2–M10 in order.
+- **Now:** M2-01 Coverage and Hypothesis.
+- **Next:** M2-02 Mutation testing and fault injection.
+- **Later:** the rest of M2, then M3–M10 in order.
 
 ## Milestones
 
 | Milestone | State | Notes |
 | --- | --- | --- |
 | M0 Hackathon baseline | done | 169 tests passed on 14 October 2026. Commits `8a0f168` (code) and `3274e8b` (plans) |
-| M1 Walking skeleton | in progress | M1-01 through M1-08 done. Default pytest skips Docker; `scripts/ci.py pr` exits 0 |
+| M1 Walking skeleton | in progress | M1-01 through M1-10 done. Acceptance still open for `pipx install` and `scan --detonate` from the CLI. `scripts/ci.py pr` exits 0 |
 | M2 Fail-closed core | not started | |
 | M3 Detection quality | not started | |
 | M4 Bring your own model | not started | |
