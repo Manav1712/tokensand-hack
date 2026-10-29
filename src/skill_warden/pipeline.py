@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import secrets
 import sqlite3
 import sys
@@ -10,7 +9,7 @@ from tempfile import TemporaryDirectory
 from uuid import uuid4
 
 from skill_warden.findings import build_rows
-from skill_warden.hashing import content_hash
+from skill_warden.hashing import content_hash, skill_files
 from skill_warden.history import record
 from skill_warden.jail import detonate as jail_detonate
 from skill_warden.memory_store import MemoryStore
@@ -63,7 +62,7 @@ def _save_history(path: Path, report: Report, content_sha256: str | None) -> Non
 
 def _scan_skill(path: Path, skill_hash: str, *, llm: object, detonate: bool) -> Report:
     root = Path(path)
-    files = _skill_files(root)
+    files = skill_files(root)
     semgrep_report = semgrep_scan(files, rule_path())
     reader_body = _reader_body(llm, files) if llm is not None else None
     if not detonate:
@@ -75,7 +74,7 @@ def _scan_skill(path: Path, skill_hash: str, *, llm: object, detonate: bool) -> 
 def _detonate(root: Path, skill_hash: str, reader_body: object) -> Report:
     nonce = secrets.token_hex(16)
     store = MemoryStore(secrets=[nonce])
-    record = SkillRecord(
+    skill = SkillRecord(
         publisher="local",
         name=root.name,
         version="0",
@@ -85,7 +84,7 @@ def _detonate(root: Path, skill_hash: str, reader_body: object) -> Report:
     run_id = uuid4()
     with TemporaryDirectory() as scratch:
         jail_detonate(
-            record,
+            skill,
             store,
             run_id=run_id,
             nonce=nonce,
@@ -95,7 +94,7 @@ def _detonate(root: Path, skill_hash: str, reader_body: object) -> Report:
     if reader_body is not None:
         store.insert_findings(run_id, build_rows(reader=reader_body))
     decision, reason = store.verdict(run_id)
-    rows = store._findings.get(run_id, [])
+    rows = store.rows(run_id)
     findings = tuple(Finding.from_row(row) for row in rows)
     return Report(findings, Verdict(decision, reason))
 
@@ -112,14 +111,3 @@ def _reader_body(llm: object, files: list[Path]) -> object:
     if isinstance(result, ReaderResult):
         return {"flags": list(result.flags), "evidence": list(result.evidence)}
     return result
-
-
-def _skill_files(root: Path) -> list[Path]:
-    files: list[Path] = []
-    for dirpath, _dirnames, filenames in os.walk(root, followlinks=False):
-        for name in filenames:
-            path = Path(dirpath) / name
-            if name == "HASH" or path.is_symlink() or not path.is_file():
-                continue
-            files.append(path)
-    return sorted(files)

@@ -1,4 +1,4 @@
-"""Walk the sample skill through the pieces built through Step 6."""
+"""Legacy ClickHouse walkthrough. `skill-warden scan` replaces it. Removed in M2-14."""
 
 import sys
 import uuid
