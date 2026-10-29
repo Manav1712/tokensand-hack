@@ -6,6 +6,9 @@ Read this first when you come back. The plan is `docs/milestones.md`, the design
 
 Newest first. Two lines per session: where you stopped, and what's next.
 
+- **2026-10-28:**
+  - **Stopped:** The five copied ClickHouse test harnesses are one `scanner` fixture. The three copies of the skill-file walk are `hashing.skill_files`. The two secret checks are `redact.contains_secret`.
+  - **Next:** M1 acceptance is still open for `pipx install` and `scan --detonate` from the CLI. Then M2-01.
 - **2026-10-27:**
   - **Stopped:** M1-09 and M1-10. `skill-warden scan` takes one or more skill directories, optional `--llm PROVIDER:MODEL` with `--llm-base-url` and `--llm-key-env`, `--detonate`, `--format text|json`, and `--no-history`. Several paths exit with the worst verdict. JSON uses the `skill-warden/scan@1` envelope. A key in the environment is redacted from the output. Bad input exits 2 and scans nothing. `pytest -m packaging` builds a wheel, installs it into a fresh venv, and scans a copied fixture from outside the repository.
   - **Next:** M2-01 Coverage and Hypothesis. M1 acceptance is still open for `pipx install` and for `scan --detonate` from the CLI.
@@ -38,9 +41,9 @@ Newest first. Two lines per session: where you stopped, and what's next.
 
 Limit: one task in **Now**, two at most.
 
-- **Now:** M2-01 Coverage and Hypothesis.
-- **Next:** M2-02 Mutation testing and fault injection.
-- **Later:** the rest of M2, then M3–M10 in order.
+- **Now:** M1 acceptance (`pipx install`, and `scan --detonate` from the CLI).
+- **Next:** M2-01 Coverage and Hypothesis.
+- **Later:** M2-02, then the rest of M2, then M3–M10 in order.
 
 ## Milestones
 
@@ -73,17 +76,12 @@ State is one of `not started`, `in progress`, `done` or `blocked`. A milestone i
 
 ## What the code is today
 
-The hackathon build, unchanged since commit `8a0f168`:
+Two paths share the jail:
 
-- **Pipeline:**
-  - `orchestrator.py` runs host Semgrep (`semgrep.py`) and the reader (`reader.py`, AkashML defaults), then maps everything through `findings.build_rows`;
-  - rows are inserted into ClickHouse (`store.py`), and `schema/verdict.sql` picks the verdict.
-- **Jail:**
-  - `jail.detonate` packs the skill and plants a honeytoken home (`honeytoken.py`);
-  - it starts a DNS and HTTP sink on the fixed network `jailnet` (`sink.py`) and runs `scripts/*.sh` and `SKILL.md` blocks under strace in a hardened Alpine container;
-  - it parses the trace and the diff (`observe.py`), and writes to the store.
-- **Also present:** `hashing.py` (v1 hash), `registry.py`, `redact.py`, `breaker.py` and `memory.py` (hackathon-only), plus `demo/` (out of scope).
-- **Tests:** 169, most needing Docker and the ClickHouse container. No CI.
+- **CLI (M1):** `skill-warden scan` calls `pipeline.scan`. That hashes the folder, runs Semgrep, maps findings, and asks `policy.decide`. `--llm` calls the reader. `--detonate` runs `jail.detonate` through `MemoryStore`, with no ClickHouse. A scan can append one row to `<data dir>/history.sqlite3`.
+- **ClickHouse (until M2-14):** `orchestrator.py` still writes to `store.py`, and `schema/verdict.sql` still picks that verdict. `breaker.py`, `memory.py`, and `registry.py` stay on this path.
+- **Jail:** `jail.detonate` packs the skill, plants a honeytoken home, and runs `scripts/*.sh` and `SKILL.md` blocks under strace. The sink is the fixed network `jailnet`.
+- **Checks:** `python scripts/ci.py pr` runs ruff, then `pytest -q`, then `pytest -m docker`. The docker tests share one ClickHouse `scanner` fixture.
 - **Known defects:** the 21 rows of architecture §17.1. Each is fixed by a milestone task.
 
 ## Things to know before you start

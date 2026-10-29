@@ -4,6 +4,7 @@ from uuid import UUID
 
 from skill_warden.errors import RedactionError
 from skill_warden.policy import decide
+from skill_warden.redact import contains_secret
 
 _STATIC = frozenset({"static"})
 
@@ -34,9 +35,12 @@ class MemoryStore:
         self._runs[run_id] = _Run(skill_hash, backend, budget_cents)
 
     def insert_findings(self, run_id: UUID, rows: list[dict[str, str]]) -> None:
-        if any(self._leaked(row["excerpt"]) for row in rows):
+        if any(contains_secret(row["excerpt"], self._secrets) for row in rows):
             raise RedactionError("excerpt contains a configured secret")
         self._findings.setdefault(run_id, []).extend(rows)
+
+    def rows(self, run_id: UUID) -> list[dict[str, str]]:
+        return list(self._findings.get(run_id, []))
 
     def finish_run(self, run_id: UUID, status: str) -> None:
         run = self._runs[run_id]
@@ -49,8 +53,5 @@ class MemoryStore:
             status = "error"
         else:
             status = run.status
-        verdict = decide(self._findings.get(run_id, []), _STATIC, status)
+        verdict = decide(self.rows(run_id), _STATIC, status)
         return verdict.decision, verdict.reason
-
-    def _leaked(self, excerpt: str) -> bool:
-        return any(len(secret) > 3 and secret in excerpt for secret in self._secrets)

@@ -10,6 +10,7 @@ from uuid import UUID
 from skill_warden import sink
 from skill_warden.errors import JailError, SkillTreeError
 from skill_warden.findings import build_rows
+from skill_warden.hashing import skill_files
 from skill_warden.honeytoken import build_home, search_nonce
 from skill_warden.observe import events_from_diff, parse_strace_log
 from skill_warden.registry import SkillRecord
@@ -168,17 +169,6 @@ def pack_skill(src: Path, dest_tar: Path) -> None:
                 tar.add(path, arcname=rel, recursive=False)
 
 
-def _skill_files(root: Path) -> list[Path]:
-    files: list[Path] = []
-    for dirpath, _dirnames, filenames in os.walk(root, followlinks=False):
-        for name in filenames:
-            path = Path(dirpath) / name
-            if name == "HASH" or path.is_symlink() or not path.is_file():
-                continue
-            files.append(path)
-    return sorted(files)
-
-
 def _run(args: list[str], *, timeout: int | None = None, check: bool = True) -> subprocess.CompletedProcess[str]:
     result = subprocess.run(args, check=False, capture_output=True, text=True, timeout=timeout)
     if check and result.returncode != 0:
@@ -253,7 +243,7 @@ def detonate(
     plant_paths = [str(p.path.relative_to(home_root)) for p in plants]
     secrets = list({p.secret for p in plants} | {nonce})
 
-    semgrep_report = scan(_skill_files(record.path), rules)
+    semgrep_report = scan(skill_files(record.path), rules)
 
     sink.build_image()
     build_jail_image()

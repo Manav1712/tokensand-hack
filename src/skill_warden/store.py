@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from skill_warden.errors import RedactionError
+from skill_warden.redact import contains_secret
 from skill_warden.verdict import load_sql
 
 _INSERT_SETTINGS = {"async_insert": 1, "wait_for_async_insert": 1}
@@ -44,7 +45,7 @@ class Store:
         )
 
     def insert_findings(self, run_id: UUID, rows: list[dict[str, str]]) -> None:
-        if any(self._leaked(row["excerpt"]) for row in rows):
+        if any(contains_secret(row["excerpt"], self._secrets) for row in rows):
             raise RedactionError("excerpt contains a configured secret")
         self._client.insert(
             "findings",
@@ -90,6 +91,3 @@ class Store:
         )
         row = dict(zip(result.column_names, result.result_rows[0], strict=True))
         return str(row["decision"]), str(row["reason_code"])
-
-    def _leaked(self, excerpt: str) -> bool:
-        return any(len(secret) > 3 and secret in excerpt for secret in self._secrets)

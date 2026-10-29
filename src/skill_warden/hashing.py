@@ -32,3 +32,14 @@ def content_hash(root: Path) -> str:
         digest.update(len(data).to_bytes(8, "big"))
         digest.update(data)
     return digest.hexdigest()
+
+
+def skill_files(root: Path) -> list[Path]:
+    files: list[Path] = []
+    for dirpath, _dirnames, filenames in os.walk(root, followlinks=False):
+        for name in filenames:
+            path = Path(dirpath) / name
+            if name == "HASH" or path.is_symlink() or not path.is_file():
+                continue
+            files.append(path)
+    return sorted(files)

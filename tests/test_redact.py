@@ -1,6 +1,11 @@
-from skill_warden.redact import excerpt, redact
+from skill_warden.redact import contains_secret, excerpt, redact
 
 TOKEN = "FAKE-CANARY-TOKEN"
+
+
+def test_contains_secret_ignores_values_of_three_characters_or_fewer():
+    assert contains_secret("abc token", ["ab", "token"])
+    assert not contains_secret("abc", ["ab", "abc"])
 
 
 def test_redact_removes_secret():
