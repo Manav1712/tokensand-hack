@@ -1,10 +1,36 @@
 import importlib.util
+import json
 import sys
 from collections.abc import Sequence
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CI_PATH = ROOT / "scripts" / "ci.py"
+_PASSING_COVERAGE = json.dumps(
+    {
+        "totals": {"percent_covered": 90},
+        "files": {
+            "src/skill_warden/redact.py": {
+                "missing_lines": [],
+                "missing_branches": [],
+                "summary": {
+                    "percent_covered": 100,
+                    "missing_branches": 0,
+                    "num_partial_branches": 0,
+                },
+            },
+            "src/skill_warden/hashing.py": {
+                "missing_lines": [],
+                "missing_branches": [],
+                "summary": {
+                    "percent_covered": 100,
+                    "missing_branches": 0,
+                    "num_partial_branches": 0,
+                },
+            },
+        },
+    }
+)
 
 
 def _load_ci():
@@ -23,6 +49,9 @@ class _Runner:
 
     def __call__(self, argv: Sequence[str]) -> int:
         self.calls.append(list(argv))
+        if "json" in argv:
+            out = Path(argv[argv.index("-o") + 1])
+            out.write_text(_PASSING_COVERAGE, encoding="utf-8")
         if not self._codes:
             return 0
         return self._codes.pop(0)
@@ -47,15 +76,33 @@ def test_lint_test_and_docker_argv():
         assert runner.calls == [_expected(command)]
 
 
-def test_pr_runs_lint_test_docker_in_order():
+def _expected_coverage() -> list[list[str]]:
+    py = sys.executable
+    return [
+        [
+            py,
+            "-m",
+            "coverage",
+            "run",
+            "--source=src/skill_warden",
+            "--branch",
+            "-m",
+            "pytest",
+            "-o",
+            "addopts=",
+            "-m",
+            "not live_llm and not packaging and not case_sensitive_fs",
+            "-q",
+        ],
+        [py, "-m", "coverage", "json", "-o", str(ROOT / "coverage.json")],
+    ]
+
+
+def test_pr_runs_lint_then_coverage():
     ci = _load_ci()
     runner = _Runner()
     assert ci.main(["pr"], runner) == 0
-    assert runner.calls == [
-        _expected("lint"),
-        _expected("test"),
-        _expected("docker"),
-    ]
+    assert runner.calls == [_expected("lint"), *_expected_coverage()]
 
 
 def test_pr_stops_when_lint_fails():
@@ -65,11 +112,11 @@ def test_pr_stops_when_lint_fails():
     assert runner.calls == [_expected("lint")]
 
 
-def test_pr_stops_when_test_fails():
+def test_pr_stops_when_coverage_fails():
     ci = _load_ci()
     runner = _Runner([0, 1])
     assert ci.main(["pr"], runner) == 1
-    assert runner.calls == [_expected("lint"), _expected("test")]
+    assert runner.calls == [_expected("lint"), _expected_coverage()[0]]
 
 
 def test_unknown_command_does_not_run():

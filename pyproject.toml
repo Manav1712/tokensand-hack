@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "ruff"]
+dev = ["coverage[toml]", "hypothesis", "pytest", "ruff"]
 
 [project.scripts]
 skill-warden = "skill_warden.cli:main"
@@ -26,4 +26,18 @@ markers = [
     "live_llm: needs a live model API key",
     "packaging: builds and installs a wheel",
     "case_sensitive_fs: needs a case-sensitive filesystem",
+]
+
+[tool.coverage.run]
+branch = true
+relative_files = true
+source = ["src/skill_warden"]
+
+[tool.coverage.report]
+show_missing = true
+
+[tool.skill_warden.core]
+files = [
+    "src/skill_warden/redact.py",
+    "src/skill_warden/hashing.py",
 ]
