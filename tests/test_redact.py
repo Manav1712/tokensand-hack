@@ -1,3 +1,6 @@
+from hypothesis import given
+from hypothesis import strategies as st
+
 from skill_warden.redact import contains_secret, excerpt, redact
 
 TOKEN = "FAKE-CANARY-TOKEN"
@@ -26,3 +29,33 @@ def test_excerpt_redacts_before_cut():
     assert TOKEN not in result
     assert "FAKE" not in result
     assert len(result) <= 200
+
+
+def test_redact_keeps_secrets_of_three_characters_or_fewer():
+    assert redact("abc token", ["abc", "token"]) == "abc [redacted]"
+
+
+def test_redact_removes_a_secret_inside_the_placeholder():
+    secret = "[red"
+
+    assert secret not in redact(f"see {secret} here", [secret])
+
+
+def test_redact_removes_a_secret_rebuilt_beside_the_placeholder():
+    # "[redacted]" ends in "d]". Replacing this secret leaves "d]" + "AB".
+    secret = "d]AB"
+
+    assert secret not in redact(secret + "AB", [secret])
+
+
+@given(
+    prefix=st.text(max_size=300),
+    suffix=st.text(max_size=300),
+    secret=st.text(min_size=4, max_size=40),
+)
+def test_raw_secret_does_not_survive_redact_then_excerpt(prefix, suffix, secret):
+    # §16.3 redaction, for a raw secret. Excerpt hides nothing redact left behind.
+    redacted = redact(prefix + secret + suffix, [secret])
+
+    assert secret not in redacted
+    assert secret not in excerpt(redacted)

@@ -61,6 +61,16 @@ def test_symlink_raises(tmp_path: Path):
         content_hash(tmp_path)
 
 
+def test_directory_symlink_raises(tmp_path: Path):
+    (tmp_path / "SKILL.md").write_bytes(b"hello")
+    nested = tmp_path / "nested"
+    nested.mkdir()
+    (tmp_path / "linkdir").symlink_to(nested, target_is_directory=True)
+
+    with pytest.raises(SkillTreeError):
+        content_hash(tmp_path)
+
+
 def test_skill_files_skips_hash_and_symlinks(tmp_path: Path):
     (tmp_path / "SKILL.md").write_text("hello\n", encoding="utf-8")
     (tmp_path / "HASH").write_text("nope\n", encoding="utf-8")
