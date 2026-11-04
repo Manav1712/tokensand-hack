@@ -25,10 +25,27 @@ _STEPS = ("lint", "test", "docker")
 _COVERAGE_MARK = "not live_llm and not packaging and not case_sensitive_fs"
 
 
+def _mypy_files() -> list[str]:
+    with (ROOT / "pyproject.toml").open("rb") as handle:
+        config = tomllib.load(handle)
+    files = config["tool"]["mypy"]["files"]
+    if (
+        not isinstance(files, list)
+        or not files
+        or not all(isinstance(item, str) and item for item in files)
+    ):
+        raise ValueError("tool.mypy.files must list the modules under strict checking")
+    return files
+
+
 def _argv(command: str) -> list[str]:
     python = sys.executable
     if command == "lint":
         return [python, "-m", "ruff", "check", "."]
+    if command == "types":
+        return [python, "-m", "mypy", "--strict", *_mypy_files()]
+    if command == "imports":
+        return [str(Path(python).with_name("lint-imports")), "--no-logo"]
     if command == "test":
         return [python, "-m", "pytest", "-q"]
     if command == "docker":
@@ -58,6 +75,15 @@ def _coverage_json_argv() -> list[str]:
 
 def _run_step(command: str, runner: Runner) -> int:
     return runner(_argv(command))
+
+
+def _run_types(runner: Runner) -> int:
+    try:
+        argv = _argv("types")
+    except (OSError, KeyError, TypeError, ValueError) as exc:
+        print(f"types: {exc}", file=sys.stderr)
+        return 1
+    return runner(argv)
 
 
 def _core_files() -> list[str]:
@@ -341,6 +367,12 @@ def _pr(runner: Runner, changed_files: ChangedFiles | None) -> int:
     code = _run_step("lint", runner)
     if code != 0:
         return code
+    code = _run_types(runner)
+    if code != 0:
+        return code
+    code = _run_step("imports", runner)
+    if code != 0:
+        return code
     code = _run_coverage(runner)
     if code != 0:
         return code
@@ -360,17 +392,19 @@ def main(
 
     if not args:
         print(
-            "usage: python scripts/ci.py {lint,test,coverage,mutate,docker,pr}",
+            "usage: python scripts/ci.py "
+            "{lint,types,imports,test,coverage,mutate,docker,pr}",
             file=sys.stderr,
         )
         return 2
 
     command = args[0]
     rest = args[1:]
-    known = {*_STEPS, "coverage", "mutate", "pr"}
+    known = {*_STEPS, "types", "imports", "coverage", "mutate", "pr"}
     if command not in known:
         print(
-            "usage: python scripts/ci.py {lint,test,coverage,mutate,docker,pr}",
+            "usage: python scripts/ci.py "
+            "{lint,types,imports,test,coverage,mutate,docker,pr}",
             file=sys.stderr,
         )
         return 2
@@ -380,6 +414,12 @@ def main(
             print("usage: python scripts/ci.py pr", file=sys.stderr)
             return 2
         return _pr(runner, changed_files)
+
+    if command == "types":
+        if rest:
+            print("usage: python scripts/ci.py types", file=sys.stderr)
+            return 2
+        return _run_types(runner)
 
     if command == "coverage":
         if rest:

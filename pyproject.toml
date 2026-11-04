@@ -13,7 +13,15 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["coverage[toml]", "hypothesis", "mutmut>=3.8,<4", "pytest", "ruff"]
+dev = [
+    "coverage[toml]",
+    "hypothesis",
+    "import-linter",
+    "mutmut>=3.8,<4",
+    "mypy",
+    "pytest",
+    "ruff",
+]
 
 [project.scripts]
 skill-warden = "skill_warden.cli:main"
@@ -40,6 +48,24 @@ show_missing = true
 [tool.ruff]
 exclude = ["mutants"]
 
+[tool.mypy]
+python_version = "3.11"
+mypy_path = "src"
+strict = true
+files = [
+    "src/skill_warden/__init__.py",
+    "src/skill_warden/cli.py",
+    "src/skill_warden/errors.py",
+    "src/skill_warden/hashing.py",
+    "src/skill_warden/history.py",
+    "src/skill_warden/memory_store.py",
+    "src/skill_warden/models.py",
+    "src/skill_warden/paths.py",
+    "src/skill_warden/pipeline.py",
+    "src/skill_warden/policy.py",
+    "src/skill_warden/redact.py",
+]
+
 [tool.mutmut]
 source_paths = ["src/skill_warden"]
 only_mutate = [
@@ -51,6 +77,26 @@ pytest_add_cli_args_test_selection = [
     "tests/test_redact.py",
     "tests/test_hashing.py",
 ]
+
+[tool.importlinter]
+root_packages = ["skill_warden"]
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Skill Warden does not import tests or scripts"
+type = "forbidden"
+source_modules = ["skill_warden"]
+forbidden_modules = ["tests", "scripts"]
+
+[[tool.importlinter.contracts]]
+name = "Stages do not import the CLI"
+type = "forbidden"
+source_modules = [
+    "skill_warden.semgrep",
+    "skill_warden.reader",
+    "skill_warden.jail",
+]
+forbidden_modules = ["skill_warden.cli"]
 
 [tool.skill_warden.core]
 files = [

@@ -57,10 +57,29 @@ class _Runner:
         return self._codes.pop(0)
 
 
+_TYPE_FILES = [
+    "src/skill_warden/__init__.py",
+    "src/skill_warden/cli.py",
+    "src/skill_warden/errors.py",
+    "src/skill_warden/hashing.py",
+    "src/skill_warden/history.py",
+    "src/skill_warden/memory_store.py",
+    "src/skill_warden/models.py",
+    "src/skill_warden/paths.py",
+    "src/skill_warden/pipeline.py",
+    "src/skill_warden/policy.py",
+    "src/skill_warden/redact.py",
+]
+
+
 def _expected(command: str) -> list[str]:
     py = sys.executable
     if command == "lint":
         return [py, "-m", "ruff", "check", "."]
+    if command == "types":
+        return [py, "-m", "mypy", "--strict", *_TYPE_FILES]
+    if command == "imports":
+        return [str(Path(py).with_name("lint-imports")), "--no-logo"]
     if command == "test":
         return [py, "-m", "pytest", "-q"]
     if command == "docker":
@@ -70,7 +89,7 @@ def _expected(command: str) -> list[str]:
 
 def test_lint_test_and_docker_argv():
     ci = _load_ci()
-    for command in ("lint", "test", "docker"):
+    for command in ("lint", "types", "imports", "test", "docker"):
         runner = _Runner()
         assert ci.main([command], runner) == 0
         assert runner.calls == [_expected(command)]
@@ -98,11 +117,16 @@ def _expected_coverage() -> list[list[str]]:
     ]
 
 
-def test_pr_runs_lint_then_coverage_then_mutate_changed():
+def test_pr_runs_lint_types_imports_then_coverage():
     ci = _load_ci()
     runner = _Runner()
     assert ci.main(["pr"], runner, changed_files=list) == 0
-    assert runner.calls == [_expected("lint"), *_expected_coverage()]
+    assert runner.calls == [
+        _expected("lint"),
+        _expected("types"),
+        _expected("imports"),
+        *_expected_coverage(),
+    ]
 
 
 def test_pr_stops_when_lint_fails():
@@ -112,18 +136,37 @@ def test_pr_stops_when_lint_fails():
     assert runner.calls == [_expected("lint")]
 
 
-def test_pr_stops_when_coverage_fails():
+def test_pr_stops_when_types_fails():
     ci = _load_ci()
     runner = _Runner([0, 1])
     assert ci.main(["pr"], runner) == 1
-    assert runner.calls == [_expected("lint"), _expected_coverage()[0]]
+    assert runner.calls == [_expected("lint"), _expected("types")]
+
+
+def test_pr_stops_when_imports_fails():
+    ci = _load_ci()
+    runner = _Runner([0, 0, 1])
+    assert ci.main(["pr"], runner) == 1
+    assert runner.calls == [_expected("lint"), _expected("types"), _expected("imports")]
+
+
+def test_pr_stops_when_coverage_fails():
+    ci = _load_ci()
+    runner = _Runner([0, 0, 0, 1])
+    assert ci.main(["pr"], runner) == 1
+    assert runner.calls == [
+        _expected("lint"),
+        _expected("types"),
+        _expected("imports"),
+        _expected_coverage()[0],
+    ]
 
 
 def test_pr_stops_when_mutate_changed_fails(monkeypatch, tmp_path):
     ci = _load_ci()
     stats_path = tmp_path / "mutmut-cicd-stats.json"
     monkeypatch.setattr(ci, "MUTMUT_STATS", stats_path)
-    runner = _Runner([0, 0, 0, 1])
+    runner = _Runner([0, 0, 0, 0, 0, 1])
     code = ci.main(
         ["pr"],
         runner,
@@ -131,8 +174,10 @@ def test_pr_stops_when_mutate_changed_fails(monkeypatch, tmp_path):
     )
     assert code == 1
     assert runner.calls[0] == _expected("lint")
-    assert runner.calls[1:3] == _expected_coverage()
-    assert runner.calls[3][:2] == ["mutmut", "run"]
+    assert runner.calls[1] == _expected("types")
+    assert runner.calls[2] == _expected("imports")
+    assert runner.calls[3:5] == _expected_coverage()
+    assert runner.calls[5][:2] == ["mutmut", "run"]
 
 
 def test_unknown_command_does_not_run():
