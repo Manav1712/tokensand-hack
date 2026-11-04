@@ -10,7 +10,8 @@ def content_hash(root: Path) -> str:
         raise SkillTreeError(f"not a directory: {root}")
 
     files: list[tuple[str, Path]] = []
-    for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
+    # Default followlinks=False. Dir symlinks are rejected below before descent.
+    for dirpath, dirnames, filenames in os.walk(root):
         for name in dirnames:
             path = Path(dirpath) / name
             if path.is_symlink():
@@ -36,7 +37,8 @@ def content_hash(root: Path) -> str:
 
 def skill_files(root: Path) -> list[Path]:
     files: list[Path] = []
-    for dirpath, _dirnames, filenames in os.walk(root, followlinks=False):
+    # Default followlinks=False; directory symlinks are not walked.
+    for dirpath, _dirnames, filenames in os.walk(root):
         for name in filenames:
             path = Path(dirpath) / name
             if name == "HASH" or path.is_symlink() or not path.is_file():

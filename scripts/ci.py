@@ -12,9 +12,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 COVERAGE_JSON = ROOT / "coverage.json"
+MUTMUT_STATS = ROOT / "mutants" / "mutmut-cicd-stats.json"
 OVERALL_FLOOR = 90
+CORE_MUTATION_FLOOR = 90
+POLICY_MUTATION_FLOOR = 100
 
 Runner = Callable[[Sequence[str]], int]
+ChangedFiles = Callable[[], Sequence[str]]
 _STEPS = ("lint", "test", "docker")
 # Unit tests alone leave the Docker-only modules under the floor. Packaging
 # and live-model tests stay out.
@@ -157,31 +161,255 @@ def _run_coverage(runner: Runner) -> int:
     return _check_coverage(COVERAGE_JSON)
 
 
-def _pr(runner: Runner) -> int:
+def mutation_floor(path: str) -> float:
+    normalized = path.replace("\\", "/")
+    if normalized.endswith("policy.py"):
+        return float(POLICY_MUTATION_FLOOR)
+    return float(CORE_MUTATION_FLOOR)
+
+
+def _kill_rate(stats: Mapping[str, object]) -> float | None:
+    def count(key: str) -> int:
+        value = stats.get(key, 0)
+        return value if isinstance(value, int) else 0
+
+    killed = count("killed")
+    denominator = (
+        killed
+        + count("survived")
+        + count("timeout")
+        + count("suspicious")
+        + count("no_tests")
+    )
+    if denominator == 0:
+        return None
+    return 100.0 * killed / denominator
+
+
+def mutation_problems(
+    report: Mapping[str, Mapping[str, object]],
+    paths: Sequence[str],
+) -> list[str]:
+    """Return why these mutation stats miss the floor. Empty means they pass."""
+    problems: list[str] = []
+    for path in paths:
+        entry = report.get(path)
+        if entry is None:
+            problems.append(f"{path} is missing from the mutation report")
+            continue
+        rate = _kill_rate(entry)
+        floor = mutation_floor(path)
+        if rate is None:
+            problems.append(f"{path} produced no mutants")
+            continue
+        if rate < floor:
+            problems.append(f"{path} kill rate {rate:g} is below {floor:g}")
+    return problems
+
+
+def _mutant_pattern(path: str) -> str:
+    relative = Path(path.replace("\\", "/"))
+    module = relative.with_suffix("").as_posix().removeprefix("src/")
+    return module.replace("/", ".") + "*"
+
+
+def _status_by_exit_code(code: object) -> str:
+    mapping = {
+        1: "killed",
+        3: "killed",
+        0: "survived",
+        5: "no_tests",
+        33: "no_tests",
+        35: "suspicious",
+        36: "timeout",
+        255: "timeout",
+        24: "timeout",
+        -24: "timeout",
+        152: "timeout",
+    }
+    if isinstance(code, int) and code in mapping:
+        return mapping[code]
+    if code is None:
+        return "not_checked"
+    return "suspicious"
+
+
+def _stats_from_meta(meta_path: Path) -> dict[str, int]:
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    exit_codes = meta.get("exit_code_by_key") or {}
+    stats = {
+        "killed": 0,
+        "survived": 0,
+        "timeout": 0,
+        "suspicious": 0,
+        "no_tests": 0,
+    }
+    survivors: list[str] = []
+    for key, code in exit_codes.items():
+        status = _status_by_exit_code(code)
+        if status == "survived":
+            survivors.append(key)
+        if status in stats:
+            stats[status] += 1
+    if survivors:
+        print("mutate survivors:", file=sys.stderr)
+        for name in survivors:
+            print(f"  {name}", file=sys.stderr)
+    return stats
+
+
+def _stats_for_path(path: str) -> Mapping[str, object]:
+    meta_path = ROOT / "mutants" / f"{path}.meta"
+    if meta_path.is_file():
+        return _stats_from_meta(meta_path)
+    return json.loads(MUTMUT_STATS.read_text(encoding="utf-8"))
+
+
+def _git_output(args: Sequence[str]) -> list[str]:
+    result = subprocess.run(
+        ["git", *args],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip() or result.stdout.strip() or "git failed")
+    return [line for line in result.stdout.splitlines() if line]
+
+
+def _default_changed_files() -> list[str]:
+    try:
+        merge_base = _git_output(["merge-base", "main", "HEAD"])
+    except RuntimeError as exc:
+        raise RuntimeError(
+            "mutate --changed needs a local main branch to find the merge-base"
+        ) from exc
+    if not merge_base:
+        raise RuntimeError("mutate --changed could not find the merge-base with main")
+    names = set(_git_output(["diff", "--name-only", f"{merge_base[0]}...HEAD"]))
+    names.update(_git_output(["diff", "--name-only"]))
+    names.update(_git_output(["diff", "--name-only", "--cached"]))
+    return sorted(names)
+
+
+def _run_mutate(
+    runner: Runner,
+    *,
+    changed_only: bool,
+    changed_files: ChangedFiles | None,
+) -> int:
+    try:
+        core = _core_files()
+    except (OSError, KeyError, TypeError, ValueError) as exc:
+        print(f"mutate: {exc}", file=sys.stderr)
+        return 1
+    if changed_only:
+        getter = changed_files or _default_changed_files
+        try:
+            changed = set(getter())
+        except RuntimeError as exc:
+            print(f"mutate: {exc}", file=sys.stderr)
+            return 1
+        targets = [path for path in core if path in changed]
+        if not targets:
+            return 0
+    else:
+        targets = list(core)
+
+    report: dict[str, Mapping[str, object]] = {}
+    for path in targets:
+        code = runner(["mutmut", "run", _mutant_pattern(path)])
+        if code != 0:
+            return code
+        code = runner(["mutmut", "export-cicd-stats"])
+        if code != 0:
+            return code
+        try:
+            report[path] = _stats_for_path(path)
+        except (OSError, json.JSONDecodeError, TypeError, ValueError) as exc:
+            print(f"mutate: {path}: {exc}", file=sys.stderr)
+            return 1
+
+    problems = mutation_problems(report, targets)
+    for problem in problems:
+        print(f"mutate: {problem}", file=sys.stderr)
+    return 1 if problems else 0
+
+
+def _pr(runner: Runner, changed_files: ChangedFiles | None) -> int:
     code = _run_step("lint", runner)
     if code != 0:
         return code
-    return _run_coverage(runner)
+    code = _run_coverage(runner)
+    if code != 0:
+        return code
+    return _run_mutate(runner, changed_only=True, changed_files=changed_files)
 
 
-def main(argv: Sequence[str] | None = None, runner: Runner | None = None) -> int:
+def main(
+    argv: Sequence[str] | None = None,
+    runner: Runner | None = None,
+    changed_files: ChangedFiles | None = None,
+) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     if runner is None:
 
         def runner(command: Sequence[str]) -> int:
             return subprocess.call(list(command), cwd=ROOT)
 
-    if len(args) != 1 or args[0] not in {*_STEPS, "coverage", "pr"}:
+    if not args:
         print(
-            "usage: python scripts/ci.py {lint,test,coverage,docker,pr}",
+            "usage: python scripts/ci.py {lint,test,coverage,mutate,docker,pr}",
             file=sys.stderr,
         )
         return 2
-    if args[0] == "pr":
-        return _pr(runner)
-    if args[0] == "coverage":
+
+    command = args[0]
+    rest = args[1:]
+    known = {*_STEPS, "coverage", "mutate", "pr"}
+    if command not in known:
+        print(
+            "usage: python scripts/ci.py {lint,test,coverage,mutate,docker,pr}",
+            file=sys.stderr,
+        )
+        return 2
+
+    if command == "pr":
+        if rest:
+            print("usage: python scripts/ci.py pr", file=sys.stderr)
+            return 2
+        return _pr(runner, changed_files)
+
+    if command == "coverage":
+        if rest:
+            print("usage: python scripts/ci.py coverage", file=sys.stderr)
+            return 2
         return _run_coverage(runner)
-    return _run_step(args[0], runner)
+
+    if command == "mutate":
+        changed_only = False
+        if rest == ["--changed"]:
+            changed_only = True
+        elif rest:
+            print(
+                "usage: python scripts/ci.py mutate [--changed]",
+                file=sys.stderr,
+            )
+            return 2
+        return _run_mutate(
+            runner,
+            changed_only=changed_only,
+            changed_files=changed_files,
+        )
+
+    if rest:
+        print(
+            f"usage: python scripts/ci.py {command}",
+            file=sys.stderr,
+        )
+        return 2
+    return _run_step(command, runner)
 
 
 if __name__ == "__main__":

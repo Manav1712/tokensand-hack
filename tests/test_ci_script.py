@@ -98,10 +98,10 @@ def _expected_coverage() -> list[list[str]]:
     ]
 
 
-def test_pr_runs_lint_then_coverage():
+def test_pr_runs_lint_then_coverage_then_mutate_changed():
     ci = _load_ci()
     runner = _Runner()
-    assert ci.main(["pr"], runner) == 0
+    assert ci.main(["pr"], runner, changed_files=list) == 0
     assert runner.calls == [_expected("lint"), *_expected_coverage()]
 
 
@@ -117,6 +117,22 @@ def test_pr_stops_when_coverage_fails():
     runner = _Runner([0, 1])
     assert ci.main(["pr"], runner) == 1
     assert runner.calls == [_expected("lint"), _expected_coverage()[0]]
+
+
+def test_pr_stops_when_mutate_changed_fails(monkeypatch, tmp_path):
+    ci = _load_ci()
+    stats_path = tmp_path / "mutmut-cicd-stats.json"
+    monkeypatch.setattr(ci, "MUTMUT_STATS", stats_path)
+    runner = _Runner([0, 0, 0, 1])
+    code = ci.main(
+        ["pr"],
+        runner,
+        changed_files=lambda: ["src/skill_warden/redact.py"],
+    )
+    assert code == 1
+    assert runner.calls[0] == _expected("lint")
+    assert runner.calls[1:3] == _expected_coverage()
+    assert runner.calls[3][:2] == ["mutmut", "run"]
 
 
 def test_unknown_command_does_not_run():

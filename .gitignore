@@ -4,6 +4,7 @@
 .coverage.*
 coverage.json
 .hypothesis/
+mutants/
 __pycache__/
 *.pyc
 .DS_Store
