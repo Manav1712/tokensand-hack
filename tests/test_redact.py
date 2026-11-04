@@ -11,6 +11,11 @@ def test_contains_secret_ignores_values_of_three_characters_or_fewer():
     assert not contains_secret("abc", ["ab", "abc"])
 
 
+def test_contains_secret_treats_four_characters_as_live():
+    assert contains_secret("xxabcdxx", ["abcd"])
+    assert not contains_secret("xxabcxx", ["abcd"])
+
+
 def test_redact_removes_secret():
     text = f"prefix {TOKEN} suffix"
 
@@ -38,14 +43,27 @@ def test_redact_keeps_secrets_of_three_characters_or_fewer():
 def test_redact_removes_a_secret_inside_the_placeholder():
     secret = "[red"
 
-    assert secret not in redact(f"see {secret} here", [secret])
+    assert redact(f"see {secret} here", [secret]) == "see  here"
 
 
 def test_redact_removes_a_secret_rebuilt_beside_the_placeholder():
     # "[redacted]" ends in "d]". Replacing this secret leaves "d]" + "AB".
     secret = "d]AB"
 
-    assert secret not in redact(secret + "AB", [secret])
+    assert redact(secret + "AB", [secret]) == "AB"
+
+
+def test_redact_replaces_the_longest_secret_first():
+    # Reverse alphabet puts the short "SECR" first; length order must win.
+    assert redact("AAAASECRET", ["SECR", "AAAASECRET"]) == "[redacted]"
+
+
+def test_redact_deletes_the_longest_secret_when_the_placeholder_rebuilds_one():
+    assert redact("d]ABABzzzz", ["d]AB", "zzzz"]) == "AB[redacted]"
+
+
+def test_redact_deletes_the_first_rebuilt_secret_occurrence():
+    assert redact("d]ABxd]ABAB", ["d]AB"]) == "xAB"
 
 
 @given(

@@ -13,13 +13,14 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["coverage[toml]", "hypothesis", "pytest", "ruff"]
+dev = ["coverage[toml]", "hypothesis", "mutmut>=3.8,<4", "pytest", "ruff"]
 
 [project.scripts]
 skill-warden = "skill_warden.cli:main"
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
+testpaths = ["tests"]
 addopts = "-m 'not docker and not live_llm and not packaging and not case_sensitive_fs'"
 markers = [
     "docker: needs Docker, including the ClickHouse test container",
@@ -35,6 +36,21 @@ source = ["src/skill_warden"]
 
 [tool.coverage.report]
 show_missing = true
+
+[tool.ruff]
+exclude = ["mutants"]
+
+[tool.mutmut]
+source_paths = ["src/skill_warden"]
+only_mutate = [
+    "src/skill_warden/redact.py",
+    "src/skill_warden/hashing.py",
+]
+also_copy = ["scripts/", "fixtures/"]
+pytest_add_cli_args_test_selection = [
+    "tests/test_redact.py",
+    "tests/test_hashing.py",
+]
 
 [tool.skill_warden.core]
 files = [
