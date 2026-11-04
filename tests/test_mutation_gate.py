@@ -1,4 +1,5 @@
 import importlib.util
+import subprocess
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -142,3 +143,69 @@ def test_mutate_runs_every_core_file(monkeypatch, tmp_path):
     assert code == 0
     run_calls = [call for call in calls if call[:2] == ["mutmut", "run"]]
     assert len(run_calls) == 2
+
+
+def _git(repo: Path, *args: str) -> str:
+    result = subprocess.run(
+        ["git", *args],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip()
+
+
+def _feature_repo(tmp_path: Path, *, origin_main: bool, local_main: bool) -> Path:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-b", "main")
+    _git(repo, "config", "user.email", "dev@example.invalid")
+    _git(repo, "config", "user.name", "dev")
+    changed = repo / "changed.txt"
+    changed.write_text("base\n", encoding="utf-8")
+    _git(repo, "add", "changed.txt")
+    _git(repo, "commit", "-m", "base")
+    base = _git(repo, "rev-parse", "HEAD")
+    _git(repo, "checkout", "-b", "feature")
+    changed.write_text("base\nfeature\n", encoding="utf-8")
+    _git(repo, "add", "changed.txt")
+    _git(repo, "commit", "-m", "feature")
+    if origin_main:
+        _git(repo, "update-ref", "refs/remotes/origin/main", base)
+    if not local_main:
+        _git(repo, "branch", "-D", "main")
+    return repo
+
+
+def test_changed_files_use_origin_main_when_local_main_is_gone(monkeypatch, tmp_path):
+    ci = _load_ci()
+    repo = _feature_repo(tmp_path, origin_main=True, local_main=False)
+    monkeypatch.setattr(ci, "ROOT", repo)
+
+    assert ci._default_changed_files() == ["changed.txt"]
+
+
+def test_changed_files_report_a_missing_base(monkeypatch, tmp_path):
+    ci = _load_ci()
+    repo = _feature_repo(tmp_path, origin_main=False, local_main=False)
+    monkeypatch.setattr(ci, "ROOT", repo)
+
+    try:
+        ci._default_changed_files()
+    except RuntimeError as exc:
+        message = str(exc)
+    else:
+        raise AssertionError("expected a missing base to fail")
+
+    assert "origin/main" in message
+    assert "main" in message
+    assert "fatal:" in message
+
+
+def test_changed_files_fall_back_to_local_main(monkeypatch, tmp_path):
+    ci = _load_ci()
+    repo = _feature_repo(tmp_path, origin_main=False, local_main=True)
+    monkeypatch.setattr(ci, "ROOT", repo)
+
+    assert ci._default_changed_files() == ["changed.txt"]

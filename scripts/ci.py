@@ -304,19 +304,45 @@ def _git_output(args: Sequence[str]) -> list[str]:
     return [line for line in result.stdout.splitlines() if line]
 
 
-def _default_changed_files() -> list[str]:
+_BASE_REFS = ("origin/main", "main")
+
+
+def _base_ref() -> str:
+    errors: list[str] = []
+    for name in _BASE_REFS:
+        try:
+            _git_output(["rev-parse", "--verify", name])
+        except RuntimeError as exc:
+            errors.append(f"{name}: {exc}")
+            continue
+        return name
+    detail = "; ".join(errors)
+    raise RuntimeError(
+        "mutate --changed could not find origin/main or main"
+        + (f" ({detail})" if detail else "")
+    )
+
+
+def _changed_since_base() -> tuple[str, list[str]]:
+    base = _base_ref()
     try:
-        merge_base = _git_output(["merge-base", "main", "HEAD"])
+        merge_base = _git_output(["merge-base", base, "HEAD"])
     except RuntimeError as exc:
         raise RuntimeError(
-            "mutate --changed needs a local main branch to find the merge-base"
+            f"mutate --changed could not find a merge-base of {base} and HEAD: {exc}"
         ) from exc
     if not merge_base:
-        raise RuntimeError("mutate --changed could not find the merge-base with main")
+        raise RuntimeError(
+            f"mutate --changed could not find a merge-base of {base} and HEAD"
+        )
     names = set(_git_output(["diff", "--name-only", f"{merge_base[0]}...HEAD"]))
     names.update(_git_output(["diff", "--name-only"]))
     names.update(_git_output(["diff", "--name-only", "--cached"]))
-    return sorted(names)
+    return base, sorted(names)
+
+
+def _default_changed_files() -> list[str]:
+    return _changed_since_base()[1]
 
 
 def _run_mutate(
@@ -331,13 +357,20 @@ def _run_mutate(
         print(f"mutate: {exc}", file=sys.stderr)
         return 1
     if changed_only:
-        getter = changed_files or _default_changed_files
+        base: str | None = None
         try:
-            changed = set(getter())
+            if changed_files is None:
+                base, names = _changed_since_base()
+                changed = set(names)
+            else:
+                changed = set(changed_files())
         except RuntimeError as exc:
             print(f"mutate: {exc}", file=sys.stderr)
             return 1
         targets = [path for path in core if path in changed]
+        if base is not None:
+            listed = ", ".join(targets) if targets else "no core files"
+            print(f"mutate --changed: base {base}, {listed}", file=sys.stderr)
         if not targets:
             return 0
     else:

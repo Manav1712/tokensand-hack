@@ -7,6 +7,9 @@ Read this first when you come back. The plan is `docs/milestones.md`, the design
 Newest first. Two lines per session: where you stopped, and what's next.
 
 - **2026-11-04:**
+  - **Stopped:** Pull-request CI was red on #14 and #15 after the tests passed. `mutate --changed` asked for a local `main`, and the depth-1 checkout of `refs/pull/N/merge` has none. It now diffs against `origin/main` (local `main` if that remote ref is absent) and the workflow fetches full history so `origin/main` exists. The git error is included when the base is missing.
+  - **Next:** M2-04 Full domain types. M1 acceptance is still open for `pipx install` and `scan --detonate` from the CLI.
+- **2026-11-04:**
   - **Stopped:** M2-03. `mypy` and `import-linter` are dev dependencies. `scripts/ci.py types` runs `mypy --strict` on `[tool.mypy] files` (the v2 modules that exist). `scripts/ci.py imports` runs `lint-imports`: `skill_warden` does not import `tests` or `scripts`, and `semgrep`, `reader`, and `jail` do not import `cli`. An AST test allows `Verdict(...)` only in `policy.py`. A thrown stage calls `policy.block_not_finished()`; detonation asks `decide` with `MemoryStore.run_status`. `llm/` and `detonate/` are not packages yet, so that contract waits for M4-09. `pr` runs lint, types, imports, coverage, then `mutate --changed`. `.venv/bin/python scripts/ci.py pr` exits 0 (309 passed under coverage).
   - **Next:** M2-04 Full domain types. M1 acceptance is still open for `pipx install` and `scan --detonate` from the CLI.
 - **2026-11-03:**
@@ -109,7 +112,7 @@ Two paths share the jail:
 - **CLI (M1):** `skill-warden scan` calls `pipeline.scan`. That hashes the folder, runs Semgrep, maps findings, and asks `policy.decide`. `--llm` calls the reader. `--detonate` runs `jail.detonate` through `MemoryStore`, with no ClickHouse. A scan can append one row to `<data dir>/history.sqlite3`.
 - **ClickHouse (until M2-14):** `orchestrator.py` still writes to `store.py`, and `schema/verdict.sql` still picks that verdict. `breaker.py`, `memory.py`, and `registry.py` stay on this path.
 - **Jail:** `jail.detonate` packs the skill, plants a honeytoken home, and runs `scripts/*.sh` and `SKILL.md` blocks under strace. The sink is the fixed network `jailnet`.
-- **Checks:** `python scripts/ci.py pr` runs ruff, then `ci.py types`, then `ci.py imports`, then `ci.py coverage`, then `ci.py mutate --changed`. `types` is `mypy --strict` on the v2 module list in `[tool.mypy] files`. `imports` is import-linter. Coverage runs the unit and docker tests under branch coverage and requires 90% overall and 100% on `redact.py` and `hashing.py`. Mutation kill rate is 100% on `policy.py` and at least 90% on the other core files. `ci.py test` and `ci.py docker` still run those suites on their own. The docker tests share one ClickHouse `scanner` fixture.
+- **Checks:** `python scripts/ci.py pr` runs ruff, then `ci.py types`, then `ci.py imports`, then `ci.py coverage`, then `ci.py mutate --changed`. `types` is `mypy --strict` on the v2 module list in `[tool.mypy] files`. `imports` is import-linter. Coverage runs the unit and docker tests under branch coverage and requires 90% overall and 100% on `redact.py` and `hashing.py`. `mutate --changed` diffs against `origin/main` when that ref exists, otherwise local `main`. The workflow fetches full history so a pull request has `origin/main`. Mutation kill rate is 100% on `policy.py` and at least 90% on the other core files. `ci.py test` and `ci.py docker` still run those suites on their own. The docker tests share one ClickHouse `scanner` fixture.
 - **Known defects:** the 21 rows of architecture §17.1. Each is fixed by a milestone task.
 
 ## Things to know before you start
