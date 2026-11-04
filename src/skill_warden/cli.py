@@ -8,6 +8,7 @@ import os
 import sys
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Never
 
 from skill_warden.models import Report
 from skill_warden.pipeline import scan
@@ -28,7 +29,7 @@ class _Usage(Exception):
 
 
 class _Parser(argparse.ArgumentParser):
-    def error(self, message: str) -> None:
+    def error(self, message: str) -> Never:
         raise _Usage(message)
 
 

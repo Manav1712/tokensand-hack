@@ -47,11 +47,12 @@ class MemoryStore:
         run.status = status
         run.finished = True
 
-    def verdict(self, run_id: UUID) -> tuple[str, str]:
+    def run_status(self, run_id: UUID) -> str:
         run = self._runs.get(run_id)
         if run is None or not run.finished:
-            status = "error"
-        else:
-            status = run.status
-        verdict = decide(self.rows(run_id), _STATIC, status)
+            return "error"
+        return run.status
+
+    def verdict(self, run_id: UUID) -> tuple[str, str]:
+        verdict = decide(self.rows(run_id), _STATIC, self.run_status(run_id))
         return verdict.decision, verdict.reason

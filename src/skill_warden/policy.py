@@ -5,6 +5,11 @@ from collections.abc import Collection, Mapping, Sequence
 from skill_warden.models import Verdict
 
 
+def block_not_finished() -> Verdict:
+    """A stage raised, so the run did not finish. Does not call decide()."""
+    return Verdict("BLOCK", "not_finished")
+
+
 def decide(
     findings: Sequence[Mapping[str, str]],
     stages_requested: Collection[str],
@@ -15,7 +20,7 @@ def decide(
     if status == "timeout":
         return Verdict("BLOCK", "timeout")
     if status != "completed":
-        return Verdict("BLOCK", "not_finished")
+        return block_not_finished()
     if not findings:
         return Verdict("BLOCK", "no_findings")
 

@@ -4,7 +4,7 @@ import hashlib
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Literal
+from typing import Literal, cast
 
 _ROW_KEYS = ("source", "rule_id", "severity", "file", "excerpt", "evidence_hash")
 _DECISIONS = frozenset({"BLOCK", "ASK", "ALLOW"})
@@ -31,6 +31,13 @@ class Source(StrEnum):
 
 def _excerpt_hash(excerpt: str) -> str:
     return hashlib.sha256(excerpt.encode()).hexdigest()
+
+
+def _text(row: Mapping[str, object], key: str) -> str:
+    value = row[key]
+    if not isinstance(value, str):
+        raise TypeError(f"{key} must be a str")
+    return value
 
 
 @dataclass(frozen=True)
@@ -60,17 +67,15 @@ class Finding:
         line = row.get("line")
         if line is not None and (isinstance(line, bool) or not isinstance(line, int)):
             raise TypeError("line must be an int")
-        for key in ("rule_id", "file", "excerpt", "evidence_hash"):
-            if not isinstance(row[key], str):
-                raise TypeError(f"{key} must be a str")
+        # A non-string source or severity still reaches the enum, which raises ValueError.
         return cls(
-            source=Source(row["source"]),
-            rule_id=row["rule_id"],
-            severity=Severity(row["severity"]),
-            file=row["file"],
+            source=Source(cast(str, row["source"])),
+            rule_id=_text(row, "rule_id"),
+            severity=Severity(cast(str, row["severity"])),
+            file=_text(row, "file"),
             line=line,
-            excerpt=row["excerpt"],
-            evidence_hash=row["evidence_hash"],
+            excerpt=_text(row, "excerpt"),
+            evidence_hash=_text(row, "evidence_hash"),
         )
 
     def to_row(self) -> dict[str, str | int]:
