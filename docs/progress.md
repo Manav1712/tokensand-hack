@@ -7,6 +7,9 @@ Read this first when you come back. The plan is `docs/milestones.md`, the design
 Newest first. Two lines per session: where you stopped, and what's next.
 
 - **2026-11-05:**
+  - **Stopped:** M2-05. `decide(outcome, approval=None)` implements §12 rows 1–11 and 13. `approval` is accepted and unused; covered findings stay M5-01. The crude pipeline still requests only `static` and passes hash version 1. `policy.py` is on the core and mutation lists: 100% branch coverage and 188/188 mutants killed. `.venv/bin/python scripts/ci.py pr` exits 0 (352 passed under coverage).
+  - **Next:** M2-06 Content hash v2. M1 acceptance is still open for `pipx install` and `scan --detonate` from the CLI.
+- **2026-11-05:**
   - **Stopped:** M2-04. `models.py` has frozen `FileEntry`, `SkillRecord` (`hash_version`, optional `content_sha256`), `StageResult` (`secrets` omitted from `repr` and `public()`), `RunOutcome` (`content_sha256` and `hash_version`), and `Approval`. `Verdict.approval` defaults to `None`. The crude `Report` and `registry.SkillRecord` are unchanged. `.venv/bin/python scripts/ci.py pr` exits 0 (328 passed under coverage).
   - **Next:** M2-05 Policy: the full decision table. M1 acceptance is still open for `pipx install` and `scan --detonate` from the CLI.
 - **2026-11-04:**
@@ -56,9 +59,9 @@ Newest first. Two lines per session: where you stopped, and what's next.
 
 Limit: one task in **Now**, two at most.
 
-- **Now:** M2-05 Policy: the full decision table.
-- **Next:** M2-06 Content hash v2.
-- **Later:** M2-06 through M2-14, then M3–M10 in order. M1 acceptance (`pipx install`, and `scan --detonate` from the CLI) is still open.
+- **Now:** M2-06 Content hash v2.
+- **Next:** M2-07 Intake inventory.
+- **Later:** M2-07 through M2-14, then M3–M10 in order. M1 acceptance (`pipx install`, and `scan --detonate` from the CLI) is still open.
 
 ## Milestones
 
@@ -66,7 +69,7 @@ Limit: one task in **Now**, two at most.
 | --- | --- | --- |
 | M0 Hackathon baseline | done | 169 tests passed on 14 October 2026. Commits `8a0f168` (code) and `3274e8b` (plans) |
 | M1 Walking skeleton | in progress | M1-01 through M1-10 done. Acceptance still open for `pipx install` and `scan --detonate` from the CLI. `scripts/ci.py pr` exits 0 |
-| M2 Fail-closed core | in progress | M2-01 through M2-04 done. M2-05 is next |
+| M2 Fail-closed core | in progress | M2-01 through M2-05 done. M2-06 is next |
 | M3 Detection quality | not started | |
 | M4 Bring your own model | not started | |
 | M5 Living with false positives | not started | |
@@ -86,7 +89,7 @@ Fail-closed core. Do these in order, one at a time. Tick a box when that task's 
 - [x] **M2-02 — Mutation testing and fault injection.** `mutmut` and `scripts/ci.py mutate [--changed]`: 100% on `policy.py`, at least 90% on the rest of the core. The `fake_binary` fixture puts an executable at the front of `PATH`. Done when mutmut on `redact.py` lists its survivors, the new tests kill them, and `tests/test_fakes.py` passes.
 - [x] **M2-03 — Strict types and import contracts.** `mypy --strict` on the v2 module list, and `import-linter` for the §16.1 contracts. An AST walk checks that only `policy.py` constructs `Verdict`. Done when `scripts/ci.py types` and `imports` run inside `pr`.
 - [x] **M2-04 — Full domain types.** `FileEntry`, `SkillRecord` with `hash_version`, `StageResult` with non-serialized `secrets`, `RunOutcome` with `content_sha256` and `hash_version`, `Approval`, and `Verdict.approval`. Done when `tests/test_models.py` covers the new types.
-- [ ] **M2-05 — Policy: the full decision table.** `decide(outcome, approval=None)` for §12 rows 1–11 and 13. Rows 8–10 are a requested stage that came back without findings. Add `policy.py` to the core and mutation lists. Done when every §12 case with no approval passes, determinism and monotonicity hold, and the mutation floor is 100%.
+- [x] **M2-05 — Policy: the full decision table.** `decide(outcome, approval=None)` for §12 rows 1–11 and 13. Rows 8–10 are a requested stage that came back without findings. Add `policy.py` to the core and mutation lists. Done when every §12 case with no approval passes, determinism and monotonicity hold, and the mutation floor is 100%.
 - [ ] **M2-06 — Content hash v2.** `hashing.content_hash_v2` covers every file, including `HASH` and dotfiles, with a mode byte for the execute bit and length-prefixed entries. Done when the §16.3 hash properties pass, including "a top-level `HASH` file changes the hash".
 - [ ] **M2-07 — Intake inventory.** `intake.discover` and `load_skill`: symlink and FIFO errors, the caps, text and binary classification, and `intake.case_collisions`. Done when `tests/test_intake.py` covers §8 steps 1, 2 and 4. The end-to-end case-collision test is marked `case_sensitive_fs`.
 - [ ] **M2-08 — Normalized copy.** NFKC plus `Cf` stripping into a private 0700 temporary directory, with `obfuscation.unicode` recorded against the file. Done when a U+200B inside `MEMORY.md` gives a finding and a clean copy, and a non-breaking space alone gives no finding.
@@ -115,7 +118,7 @@ Two paths share the jail:
 - **CLI (M1):** `skill-warden scan` calls `pipeline.scan`. That hashes the folder, runs Semgrep, maps findings, and asks `policy.decide`. `--llm` calls the reader. `--detonate` runs `jail.detonate` through `MemoryStore`, with no ClickHouse. A scan can append one row to `<data dir>/history.sqlite3`.
 - **ClickHouse (until M2-14):** `orchestrator.py` still writes to `store.py`, and `schema/verdict.sql` still picks that verdict. `breaker.py`, `memory.py`, and `registry.py` stay on this path.
 - **Jail:** `jail.detonate` packs the skill, plants a honeytoken home, and runs `scripts/*.sh` and `SKILL.md` blocks under strace. The sink is the fixed network `jailnet`.
-- **Checks:** `python scripts/ci.py pr` runs ruff, then `ci.py types`, then `ci.py imports`, then `ci.py coverage`, then `ci.py mutate --changed`. `types` is `mypy --strict` on the v2 module list in `[tool.mypy] files`. `imports` is import-linter. Coverage runs the unit and docker tests under branch coverage and requires 90% overall and 100% on `redact.py` and `hashing.py`. `mutate --changed` diffs against `origin/main` when that ref exists, otherwise local `main`. The workflow fetches full history so a pull request has `origin/main`. Mutation kill rate is 100% on `policy.py` and at least 90% on the other core files. `ci.py test` and `ci.py docker` still run those suites on their own. The docker tests share one ClickHouse `scanner` fixture.
+- **Checks:** `python scripts/ci.py pr` runs ruff, then `ci.py types`, then `ci.py imports`, then `ci.py coverage`, then `ci.py mutate --changed`. `types` is `mypy --strict` on the v2 module list in `[tool.mypy] files`. `imports` is import-linter. Coverage runs the unit and docker tests under branch coverage and requires 90% overall and 100% on `redact.py`, `hashing.py`, and `policy.py`. `mutate --changed` diffs against `origin/main` when that ref exists, otherwise local `main`. The workflow fetches full history so a pull request has `origin/main`. Mutation kill rate is 100% on `policy.py` and at least 90% on the other core files. `ci.py test` and `ci.py docker` still run those suites on their own. The docker tests share one ClickHouse `scanner` fixture.
 - **Known defects:** the 21 rows of architecture §17.1. Each is fixed by a milestone task.
 
 ## Things to know before you start
@@ -138,3 +141,4 @@ Two paths share the jail:
 | 2026-11-02 | M2-01. Coverage gate and Hypothesis profiles. Raw-secret redaction property passes. `scripts/ci.py pr` exits 0 (91.35% overall, core files at 100%). |
 | 2026-11-03 | M2-02. Mutation gate and `fake_binary`. `redact.py` ~97.8% kill rate (one equivalent survivor); `hashing.py` ~92.3%. `scripts/ci.py pr` exits 0. |
 | 2026-11-05 | M2-04. Frozen domain types for a skill, a stage, a run, and an approval. `Verdict.approval` defaults to none. `scripts/ci.py pr` exits 0 (328 passed under coverage). |
+| 2026-11-05 | M2-05. `decide` takes a `RunOutcome`. Rows 1–11 and 13 pass with no approval. `policy.py` is core: 100% branch coverage, 188/188 mutants killed. |
