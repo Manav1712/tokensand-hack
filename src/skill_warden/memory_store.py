@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+from typing import Literal
 from uuid import UUID
 
 from skill_warden.errors import RedactionError
+from skill_warden.models import Finding, RunOutcome, Stage
 from skill_warden.policy import decide
 from skill_warden.redact import contains_secret
 
-_STATIC = frozenset({"static"})
+_STATIC: frozenset[Stage] = frozenset(("static",))
+_RunStatus = Literal["completed", "timeout", "error"]
 
 
 class _Run:
@@ -47,12 +50,24 @@ class MemoryStore:
         run.status = status
         run.finished = True
 
-    def run_status(self, run_id: UUID) -> str:
+    def run_status(self, run_id: UUID) -> _RunStatus:
         run = self._runs.get(run_id)
-        if run is None or not run.finished:
-            return "error"
-        return run.status
+        if run is not None and run.finished and run.status == "timeout":
+            return "timeout"
+        if run is not None and run.finished and run.status == "completed":
+            return "completed"
+        return "error"
 
     def verdict(self, run_id: UUID) -> tuple[str, str]:
-        verdict = decide(self.rows(run_id), _STATIC, self.run_status(run_id))
+        run = self._runs.get(run_id)
+        findings = tuple(Finding.from_row(row) for row in self.rows(run_id))
+        outcome = RunOutcome(
+            run_id,
+            self.run_status(run_id),
+            _STATIC,
+            findings,
+            None if run is None else run.skill_hash,
+            1,
+        )
+        verdict = decide(outcome)
         return verdict.decision, verdict.reason

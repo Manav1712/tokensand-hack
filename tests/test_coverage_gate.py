@@ -10,6 +10,7 @@ CI_PATH = ROOT / "scripts" / "ci.py"
 CORE = [
     "src/skill_warden/redact.py",
     "src/skill_warden/hashing.py",
+    "src/skill_warden/policy.py",
 ]
 
 

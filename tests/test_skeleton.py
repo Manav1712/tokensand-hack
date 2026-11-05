@@ -222,6 +222,7 @@ def test_scan_continues_after_one_skill_raises(monkeypatch: pytest.MonkeyPatch, 
         ([], "completed", ("BLOCK", "no_findings")),
         ([_row("reader", "note", "low")], "completed", ("BLOCK", "semgrep_missing")),
         ([_OK], "timeout", ("BLOCK", "timeout")),
+        ([_OK], "running", ("BLOCK", "not_finished")),
     ],
 )
 def test_memory_store_verdict_uses_policy(

@@ -6,21 +6,22 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from uuid import uuid4
+from typing import Literal
+from uuid import UUID, uuid4
 
 from skill_warden.findings import build_rows
 from skill_warden.hashing import content_hash, skill_files
 from skill_warden.history import record
 from skill_warden.jail import detonate as jail_detonate
 from skill_warden.memory_store import MemoryStore
-from skill_warden.models import Finding, Report
+from skill_warden.models import Finding, Report, RunOutcome, Stage
 from skill_warden.policy import block_not_finished, decide
 from skill_warden.reader import ReaderResult
 from skill_warden.registry import SkillRecord
 from skill_warden.semgrep import rule_path
 from skill_warden.semgrep import scan as semgrep_scan
 
-_STATIC = frozenset({"static"})
+_STATIC: frozenset[Stage] = frozenset(("static",))
 
 
 def scan_skill(
@@ -67,7 +68,7 @@ def _scan_skill(path: Path, skill_hash: str, *, llm: object, detonate: bool) -> 
     reader_body = _reader_body(llm, files) if llm is not None else None
     if not detonate:
         rows = build_rows(semgrep=semgrep_report, reader=reader_body)
-        return _report(rows)
+        return _report(rows, skill_hash)
     return _detonate(root, skill_hash, reader_body)
 
 
@@ -94,14 +95,26 @@ def _detonate(root: Path, skill_hash: str, reader_body: object) -> Report:
     if reader_body is not None:
         store.insert_findings(run_id, build_rows(reader=reader_body))
     rows = store.rows(run_id)
-    findings = tuple(Finding.from_row(row) for row in rows)
-    return Report(findings, decide(rows, _STATIC, store.run_status(run_id)))
+    return _report(rows, skill_hash, run_id=run_id, status=store.run_status(run_id))
 
 
-def _report(rows: list[dict[str, str]]) -> Report:
-    verdict = decide(rows, _STATIC, "completed")
+def _report(
+    rows: list[dict[str, str]],
+    skill_hash: str,
+    *,
+    run_id: UUID | None = None,
+    status: Literal["completed", "timeout", "error"] = "completed",
+) -> Report:
     findings = tuple(Finding.from_row(row) for row in rows)
-    return Report(findings, verdict)
+    outcome = RunOutcome(
+        uuid4() if run_id is None else run_id,
+        status,
+        _STATIC,
+        findings,
+        skill_hash,
+        1,
+    )
+    return Report(findings, decide(outcome))
 
 
 def _reader_body(llm: object, files: list[Path]) -> object:

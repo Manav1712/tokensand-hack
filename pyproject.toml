@@ -71,11 +71,13 @@ source_paths = ["src/skill_warden"]
 only_mutate = [
     "src/skill_warden/redact.py",
     "src/skill_warden/hashing.py",
+    "src/skill_warden/policy.py",
 ]
 also_copy = ["scripts/", "fixtures/"]
 pytest_add_cli_args_test_selection = [
     "tests/test_redact.py",
     "tests/test_hashing.py",
+    "tests/test_policy.py",
 ]
 
 [tool.importlinter]
@@ -102,4 +104,5 @@ forbidden_modules = ["skill_warden.cli"]
 files = [
     "src/skill_warden/redact.py",
     "src/skill_warden/hashing.py",
+    "src/skill_warden/policy.py",
 ]
