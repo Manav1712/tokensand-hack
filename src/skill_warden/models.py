@@ -1,13 +1,21 @@
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Mapping
-from dataclasses import dataclass
+from collections.abc import Iterable, Mapping
+from dataclasses import dataclass, field
 from enum import StrEnum
+from pathlib import Path
 from typing import Literal, cast
+from uuid import UUID
 
 _ROW_KEYS = ("source", "rule_id", "severity", "file", "excerpt", "evidence_hash")
 _DECISIONS = frozenset({"BLOCK", "ASK", "ALLOW"})
+_FILE_KINDS = frozenset({"text", "binary"})
+_STAGES = frozenset({"static", "reader", "detonation"})
+_STAGE_STATUSES = frozenset({"ok", "failed", "timeout", "skipped"})
+_RUN_STATUSES = frozenset({"completed", "timeout", "error"})
+
+Stage = Literal["static", "reader", "detonation"]
 
 
 class Severity(StrEnum):
@@ -92,15 +100,118 @@ class Finding:
         return row
 
 
+def _freeze_findings(findings: Iterable[Finding]) -> tuple[Finding, ...]:
+    frozen = tuple(findings)
+    if any(not isinstance(item, Finding) for item in frozen):
+        raise TypeError("findings must be Finding values")
+    return frozen
+
+
+@dataclass(frozen=True)
+class FileEntry:
+    relpath: str
+    size: int
+    kind: Literal["text", "binary"]
+    executable: bool
+
+    def __post_init__(self) -> None:
+        if self.kind not in _FILE_KINDS:
+            raise ValueError("kind must be text or binary")
+
+
+@dataclass(frozen=True)
+class SkillRecord:
+    path: Path
+    name: str
+    content_sha256: str | None
+    hash_version: int
+    files: tuple[FileEntry, ...]
+
+    def __post_init__(self) -> None:
+        files = tuple(self.files)
+        if any(not isinstance(item, FileEntry) for item in files):
+            raise TypeError("files must be FileEntry values")
+        object.__setattr__(self, "files", files)
+
+
+@dataclass(frozen=True)
+class StageResult:
+    stage: Stage
+    status: Literal["ok", "failed", "timeout", "skipped"]
+    findings: tuple[Finding, ...]
+    detail: str = ""
+    elapsed_ms: int = 0
+    secrets: tuple[str, ...] = field(default=(), repr=False)
+
+    def __post_init__(self) -> None:
+        if self.stage not in _STAGES:
+            raise ValueError("stage must be static, reader, or detonation")
+        if self.status not in _STAGE_STATUSES:
+            raise ValueError("status must be ok, failed, timeout, or skipped")
+        secrets = tuple(self.secrets)
+        if any(not isinstance(item, str) for item in secrets):
+            raise TypeError("secrets must be strings")
+        object.__setattr__(self, "findings", _freeze_findings(self.findings))
+        object.__setattr__(self, "secrets", secrets)
+
+    def public(self) -> dict[str, object]:
+        return {
+            "stage": self.stage,
+            "status": self.status,
+            "findings": self.findings,
+            "detail": self.detail,
+            "elapsed_ms": self.elapsed_ms,
+        }
+
+
+@dataclass(frozen=True)
+class RunOutcome:
+    run_id: UUID
+    status: Literal["completed", "timeout", "error"]
+    stages_requested: frozenset[Stage]
+    findings: tuple[Finding, ...]
+    content_sha256: str | None
+    hash_version: int
+
+    def __post_init__(self) -> None:
+        if self.status not in _RUN_STATUSES:
+            raise ValueError("status must be completed, timeout, or error")
+        stages = frozenset(self.stages_requested)
+        if not stages <= _STAGES:
+            raise ValueError("stage must be static, reader, or detonation")
+        object.__setattr__(self, "stages_requested", stages)
+        object.__setattr__(self, "findings", _freeze_findings(self.findings))
+
+
+@dataclass(frozen=True)
+class Approval:
+    id: str
+    content_sha256: str
+    hash_version: int
+    accepted: frozenset[str]
+    reason: str
+    approved_at: str
+    run_id: UUID
+
+    def __post_init__(self) -> None:
+        accepted = frozenset(self.accepted)
+        if any(not isinstance(item, str) for item in accepted):
+            raise TypeError("accepted must be rule ids")
+        object.__setattr__(self, "accepted", accepted)
+
+
 @dataclass(frozen=True)
 class Verdict:
     decision: Literal["BLOCK", "ASK", "ALLOW"]
     reason: str
     detail: str = ""
+    approval: Approval | None = None
 
     def __post_init__(self) -> None:
         if self.decision not in _DECISIONS:
             raise ValueError("decision must be BLOCK, ASK, or ALLOW")
+        if self.approval is not None and not isinstance(self.approval, Approval):
+            raise TypeError("approval must be an Approval")
 
 
 @dataclass(frozen=True)
@@ -109,9 +220,6 @@ class Report:
     verdict: Verdict
 
     def __post_init__(self) -> None:
-        findings = tuple(self.findings)
-        if any(not isinstance(item, Finding) for item in findings):
-            raise TypeError("findings must be Finding values")
         if not isinstance(self.verdict, Verdict):
             raise TypeError("verdict must be a Verdict")
-        object.__setattr__(self, "findings", findings)
+        object.__setattr__(self, "findings", _freeze_findings(self.findings))
