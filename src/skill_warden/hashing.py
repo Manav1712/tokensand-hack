@@ -38,12 +38,16 @@ def content_hash(root: Path) -> str:
     return digest.hexdigest()
 
 
+def _unreadable(_error: OSError) -> None:
+    raise SkillTreeError("unreadable") from None
+
+
 def content_hash_v2(root: Path) -> str:
     if root.is_symlink() or not root.is_dir():
         raise SkillTreeError(f"not a directory: {root}")
 
     files: dict[str, Path] = {}
-    for dirpath, dirnames, filenames in os.walk(root):
+    for dirpath, dirnames, filenames in os.walk(root, onerror=_unreadable):
         for name in dirnames:
             path = Path(dirpath) / name
             if path.is_symlink():
@@ -58,12 +62,16 @@ def content_hash_v2(root: Path) -> str:
     digest = hashlib.sha256()
     for rel in sorted(files):
         path = files[rel]
-        data = path.read_bytes()
-        rel_b = rel.encode()
-        digest.update(len(rel_b).to_bytes(8))
+        try:
+            data = path.read_bytes()
+            mode = path.stat().st_mode
+        except OSError:
+            raise SkillTreeError("unreadable") from None
+        rel_b = os.fsencode(rel)
+        digest.update(len(rel_b).to_bytes(8, "big"))
         digest.update(rel_b)
-        digest.update(_mode_byte(path.stat().st_mode))
-        digest.update(len(data).to_bytes(8))
+        digest.update(_mode_byte(mode))
+        digest.update(len(data).to_bytes(8, "big"))
         digest.update(data)
     return digest.hexdigest()
 

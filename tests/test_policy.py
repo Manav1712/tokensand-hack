@@ -5,7 +5,7 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from skill_warden.models import Finding, RunOutcome, Severity, Source, Verdict
+from skill_warden.models import Approval, Finding, RunOutcome, Severity, Source, Verdict
 from skill_warden.policy import block_not_finished, decide
 
 _STATIC = frozenset({"static"})
@@ -383,6 +383,34 @@ def test_decide(findings, stages, status, decision, reason, detail):
 
 def test_block_not_finished():
     assert block_not_finished() == Verdict("BLOCK", "not_finished")
+
+
+def test_approval_is_ignored_until_covered_findings():
+    outcome = RunOutcome(
+        uuid4(),
+        "completed",
+        _STATIC,
+        (_finding("semgrep", "rule.high", "high"),),
+        "abc",
+        2,
+    )
+    approval = Approval(
+        "ap-1",
+        "abc",
+        2,
+        frozenset({"rule.high"}),
+        "its job",
+        "2026-11-05",
+        uuid4(),
+    )
+
+    verdict = decide(outcome, approval)
+
+    assert verdict == decide(outcome)
+    assert verdict.decision == "BLOCK"
+    assert verdict.reason == "high_finding"
+    assert verdict.detail == "rule.high"
+    assert verdict.approval is None
 
 
 _finding_rows = st.lists(

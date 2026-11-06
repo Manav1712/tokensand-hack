@@ -136,6 +136,12 @@ class SkillRecord:
 
 @dataclass(frozen=True)
 class StageResult:
+    """One stage of a scan.
+
+    ``public()`` is the only safe mapping. ``dataclasses.asdict`` and
+    ``astuple`` still include ``secrets``, so equality can tell two results apart.
+    """
+
     stage: Stage
     status: Literal["ok", "failed", "timeout", "skipped"]
     findings: tuple[Finding, ...]

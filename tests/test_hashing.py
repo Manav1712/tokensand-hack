@@ -1,4 +1,5 @@
 import hashlib
+import os
 import socket
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -120,7 +121,7 @@ def test_file_path_raises(tmp_path: Path):
 def _expected_v2(files: list[tuple[str, bytes, bool]]) -> str:
     digest = hashlib.sha256()
     for rel, data, executable in sorted(files, key=lambda item: item[0]):
-        rel_b = rel.encode("utf-8")
+        rel_b = os.fsencode(rel)
         digest.update(len(rel_b).to_bytes(8, "big"))
         digest.update(rel_b)
         digest.update(b"x" if executable else b"-")
@@ -204,9 +205,14 @@ def test_execute_bit_changes_v2_digest(tmp_path: Path):
     group = content_hash_v2(tmp_path)
     script.chmod(0o645)
     other = content_hash_v2(tmp_path)
+    script.chmod(0o744)
+    owner_only = content_hash_v2(tmp_path)
+    script.chmod(0o4644)
+    setuid = content_hash_v2(tmp_path)
 
     assert plain != user
-    assert user == group == other
+    assert owner_only == user == group == other
+    assert setuid == plain
 
 
 def test_v2_hash_ignores_write_order(tmp_path: Path):
@@ -236,6 +242,43 @@ def test_v2_skips_a_socket(tmp_path: Path):
         assert content_hash_v2(tmp_path) == _expected_v2([("SKILL.md", b"hello", False)])
     finally:
         sock.close()
+
+
+def test_v2_unlistable_directory_is_unreadable(tmp_path: Path):
+    (tmp_path / "SKILL.md").write_bytes(b"hello")
+    hidden = tmp_path / "secret"
+    hidden.mkdir()
+    (hidden / "note.md").write_bytes(b"hidden")
+    hidden.chmod(0)
+    try:
+        with pytest.raises(SkillTreeError, match="^unreadable$") as raised:
+            content_hash_v2(tmp_path)
+        assert str(hidden) not in str(raised.value)
+    finally:
+        hidden.chmod(0o755)
+
+
+def test_v2_unreadable_file_is_unreadable(tmp_path: Path):
+    skill = tmp_path / "SKILL.md"
+    skill.write_bytes(b"hello")
+    skill.chmod(0)
+    try:
+        with pytest.raises(SkillTreeError, match="^unreadable$") as raised:
+            content_hash_v2(tmp_path)
+        assert str(skill) not in str(raised.value)
+    finally:
+        skill.chmod(0o644)
+
+
+def test_v2_hashes_a_non_utf8_name(tmp_path: Path):
+    (tmp_path / "SKILL.md").write_bytes(b"hello")
+    raw_name = b"\xff.md"
+    path = tmp_path / os.fsdecode(raw_name)
+    path.write_bytes(b"x")
+
+    assert content_hash_v2(tmp_path) == _expected_v2(
+        [("SKILL.md", b"hello", False), (os.fsdecode(raw_name), b"x", False)]
+    )
 
 
 def test_v2_symlink_raises(tmp_path: Path):

@@ -7,6 +7,9 @@ Read this first when you come back. The plan is `docs/milestones.md`, the design
 Newest first. Two lines per session: where you stopped, and what's next.
 
 - **2026-11-05:**
+  - **Stopped:** `content_hash_v2` fails closed. An unlistable directory or an unreadable file raises `SkillTreeError("unreadable")` with no path in the message. Path bytes go through `os.fsencode`, so a non-UTF-8 name is hashed. Owner-only execute (`0o744`) matches any other execute bit, and setuid without an execute bit stays `-`. A matching approval is still ignored. `StageResult.public()` is the safe mapping; `asdict` still includes secrets. `PATH=.venv/bin:$PATH .venv/bin/python scripts/ci.py pr` exits 0 (373 passed under coverage, 92.19% overall). `hashing.py` and `policy.py` are at 100% branch coverage. `policy.py` is 188/188 mutants killed. `hashing.py` is 113/120 (94.2%): the five equivalent v1 survivors remain, and two v2 survivors drop the explicit `"big"` byteorder, which is the default.
+  - **Next:** M2-07 Intake inventory. M1 acceptance is still open for `pipx install` and `scan --detonate` from the CLI.
+- **2026-11-05:**
   - **Stopped:** M2-06. `content_hash_v2` hashes every regular file, including `HASH` and dotfiles, with a mode byte (`x` if any execute bit is set, otherwise `-`) and length-prefixed path and bytes. v1 `content_hash` still skips `HASH`. The pipeline and registry still call v1. §16.3 hash properties pass. `hashing.py` is at 100% branch coverage and about 95% mutants killed; the five surviving v1 mutants are the same equivalent ones as on 2026-11-03. `PATH=.venv/bin:$PATH .venv/bin/python scripts/ci.py pr` exits 0 (366 passed under coverage).
   - **Next:** M2-07 Intake inventory. M1 acceptance is still open for `pipx install` and `scan --detonate` from the CLI.
 - **2026-11-05:**
@@ -146,3 +149,4 @@ Two paths share the jail:
 | 2026-11-05 | M2-04. Frozen domain types for a skill, a stage, a run, and an approval. `Verdict.approval` defaults to none. `scripts/ci.py pr` exits 0 (328 passed under coverage). |
 | 2026-11-05 | M2-05. `decide` takes a `RunOutcome`. Rows 1–11 and 13 pass with no approval. `policy.py` is core: 100% branch coverage, 188/188 mutants killed. |
 | 2026-11-05 | M2-06. `content_hash_v2` includes `HASH`, dotfiles, and an execute-bit mode byte. v1 `content_hash` is unchanged and still used by the pipeline. |
+| 2026-11-05 | `content_hash_v2` raises `unreadable` for an unlistable directory or an unreadable file, and hashes raw path bytes. `scripts/ci.py pr` exits 0 (373 passed, 92.19% overall). |

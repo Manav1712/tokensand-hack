@@ -1,5 +1,5 @@
 import hashlib
-from dataclasses import FrozenInstanceError
+from dataclasses import FrozenInstanceError, asdict
 from pathlib import Path
 from uuid import uuid4
 
@@ -247,6 +247,7 @@ def test_stage_result_hides_secrets_and_copies_inputs():
     other = StageResult("reader", "failed", (finding,), "reader_refused", 15, ("OTHER",))
     assert result == same
     assert result != other
+    assert asdict(result)["secrets"] == ("FAKE-CANARY",)
 
 
 def test_stage_result_rejects_a_non_finding():
