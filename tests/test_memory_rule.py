@@ -5,8 +5,7 @@ from uuid import uuid4
 from skill_warden.intake import load_skill, write_normalized
 from skill_warden.models import RunOutcome
 from skill_warden.policy import decide
-from skill_warden.semgrep import rule_path
-from skill_warden.static.semgrep import scan
+from skill_warden.static.semgrep import rule_path, scan
 
 ROOT = Path(__file__).resolve().parents[1]
 LIVENESS = ROOT / "src" / "skill_warden" / "rules" / "liveness.yaml"

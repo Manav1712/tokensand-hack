@@ -83,7 +83,6 @@ _TYPE_FILES = [
     "src/skill_warden/hashing.py",
     "src/skill_warden/history.py",
     "src/skill_warden/intake.py",
-    "src/skill_warden/memory_store.py",
     "src/skill_warden/models.py",
     "src/skill_warden/paths.py",
     "src/skill_warden/pipeline.py",

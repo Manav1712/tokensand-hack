@@ -7,6 +7,9 @@ Read this first when you come back. The plan is `docs/milestones.md`, the design
 Newest first. Two lines per session: where you stopped, and what's next.
 
 - **2026-11-10:**
+  - **Stopped:** M2-14. ClickHouse, the hackathon modules, v1 `content_hash`, and `jail.detonate` are gone. `--detonate` is BLOCK `tool_error` `detonation_unavailable` until M6-04. The acceptance grep over `src`, `tests`, and `pyproject.toml` is clean. `PATH=.venv/bin:$PATH .venv/bin/python -m pytest -q` exits 0 (382 passed).
+  - **Next:** M3-01 Benign corpus. M1 acceptance is still open for `pipx install`. There is no end-to-end detonation until M6-04.
+- **2026-11-10:**
   - **Stopped:** M2-13. `pipeline.scan_skill` runs intake, a normalized copy, the fail-closed static stage, an optional reader, and optional detonation. A blocking finding skips later stages unless `--full`. The auto clock, stage failures, and a secret in rendered output are covered by `tests/test_pipeline_guards.py`.
   - **Next:** M2-14 Remove ClickHouse and the dead modules. M1 acceptance is still open for `pipx install` and `scan --detonate` from the CLI.
 - **2026-11-10:**
@@ -86,9 +89,9 @@ Newest first. Two lines per session: where you stopped, and what's next.
 
 Limit: one task in **Now**, two at most.
 
-- **Now:** M2-14 Remove ClickHouse and the dead modules.
-- **Next:** M3-01 Benign corpus.
-- **Later:** M3–M10 in order. M1 acceptance (`pipx install`) is still open. There is no end-to-end detonation until M6-04.
+- **Now:** M3-01 Benign corpus.
+- **Next:** M3-02 Static eval and the ratchet.
+- **Later:** M3–M10 in order. M1 acceptance (`pipx install`) is still open. There is no end-to-end detonation until M6-04. Docker build contexts still use `parents[2]` until M6-01.
 
 ## Milestones
 
@@ -96,7 +99,7 @@ Limit: one task in **Now**, two at most.
 | --- | --- | --- |
 | M0 Hackathon baseline | done | 169 tests passed on 14 October 2026. Commits `8a0f168` (code) and `3274e8b` (plans) |
 | M1 Walking skeleton | in progress | M1-01 through M1-10 done. Acceptance still open for `pipx install` and `scan --detonate` from the CLI. `scripts/ci.py pr` exits 0 |
-| M2 Fail-closed core | in progress | M2-01 through M2-13 done. M2-14 is next |
+| M2 Fail-closed core | in progress | M2-01 through M2-14 done. Acceptance still open for the Docker `parents[2]` half of defect #10 |
 | M3 Detection quality | not started | |
 | M4 Bring your own model | not started | |
 | M5 Living with false positives | not started | |
@@ -125,7 +128,7 @@ Fail-closed core. Do these in order, one at a time. Tick a box when that task's 
 - [x] **M2-11 — Static stage, fail-closed.** `static/semgrep.py` resolves the binary next to `sys.executable` first, passes explicit file targets, uses a minimal subprocess environment, covers every §9.3 row, and runs the liveness canary. Done when each §9.3 row has a test with an injected `run` and one with `fake_binary`.
 - [x] **M2-12 — Fix the memory rule.** The regex is a single-line scalar. Add the `dotslash-memory` and `zero-width-memory` fixtures. Done when `append the note to ./MEMORY.md` is BLOCK, and the reachability test emits `skill-memory-file-persistence` from a fixture.
 - [x] **M2-13 — Pipeline proper.** Replace the crude pipeline with the §7 stage protocol: stage isolation, short-circuit with `--full`, the `"auto"` global clock, and redaction before rendering. A secret in output is BLOCK `not_finished`. Done when `tests/test_pipeline_guards.py` covers §7.2 and §7.3, and no stage receives `os.environ`.
-- [ ] **M2-14 — Remove ClickHouse and the dead modules.** Delete `store`, `verdict`, `breaker`, `memory`, `registry`, `orchestrator`, the old `semgrep.py`, `jail.detonate`, `MemoryStore`, `schema/*.sql`, `scripts/try_sample_skill.py`, their tests, and v1 `content_hash`. Port `test_first_block.py` and `test_reader_path.py` to the pipeline tests. Done when the acceptance grep is clean and the suite passes without `clickhouse-connect`. There is no end-to-end detonation from here until M6-04.
+- [x] **M2-14 — Remove ClickHouse and the dead modules.** Delete `store`, `verdict`, `breaker`, `memory`, `registry`, `orchestrator`, the old `semgrep.py`, `jail.detonate`, `MemoryStore`, `schema/*.sql`, `scripts/try_sample_skill.py`, their tests, and v1 `content_hash`. Port `test_first_block.py` and `test_reader_path.py` to the pipeline tests. Done when the acceptance grep is clean and the suite passes without `clickhouse-connect`. There is no end-to-end detonation from here until M6-04.
 
 ## Operator gates
 
@@ -142,16 +145,15 @@ Fail-closed core. Do these in order, one at a time. Tick a box when that task's 
 
 Two paths share the jail:
 
-- **CLI (M1):** `skill-warden scan` discovers skills, then calls `pipeline.scan`. The pipeline still hashes the folder with v1 `content_hash`, runs Semgrep, maps findings, and asks `policy.decide(RunOutcome)`. `load_skill` hashes a clean tree with `content_hash_v2`; the pipeline does not call it until the stage protocol lands. `--llm` calls the reader. `--detonate` runs `jail.detonate` through `MemoryStore`, with no ClickHouse. A scan can append one row to `<data dir>/history.sqlite3`.
-- **ClickHouse (until M2-14):** `orchestrator.py` still writes to `store.py`, and `schema/verdict.sql` still picks that verdict. `breaker.py`, `memory.py`, and `registry.py` stay on this path.
-- **Jail:** `jail.detonate` packs the skill, plants a honeytoken home, and runs `scripts/*.sh` and `SKILL.md` blocks under strace. The sink is the fixed network `jailnet`.
-- **Checks:** `python scripts/ci.py pr` runs ruff, then `ci.py types`, then `ci.py imports`, then `ci.py coverage`, then `ci.py mutate --changed`. `types` is `mypy --strict` on the v2 module list in `[tool.mypy] files`. `imports` is import-linter. Coverage runs the unit and docker tests under branch coverage and requires 90% overall and 100% on `redact.py`, `hashing.py`, and `policy.py`. `mutate --changed` diffs against `origin/main` when that ref exists, otherwise local `main`. The workflow fetches full history so a pull request has `origin/main`. Mutation kill rate is 100% on `policy.py` and at least 90% on the other core files. `ci.py test` and `ci.py docker` still run those suites on their own. The docker tests share one ClickHouse `scanner` fixture.
+- **CLI:** `skill-warden scan` discovers skills, then `pipeline.scan` inventories the tree, hashes it with `content_hash_v2`, normalizes text, and runs the fail-closed static stage. `--llm` calls the crude reader on normalized text only. `--detonate` is BLOCK `detonation_unavailable` until M6-04. A scan can append one row to `<data dir>/history.sqlite3`.
+- **Jail:** `jail.plan` and `pack_skill` remain. `jail.detonate` is gone until M6-04. The sink is still the fixed network `jailnet`.
+- **Checks:** `python scripts/ci.py pr` runs ruff, then `ci.py types`, then `ci.py imports`, then `ci.py coverage`, then `ci.py mutate --changed`. `types` is `mypy --strict` on the v2 module list in `[tool.mypy] files`. `imports` is import-linter. Coverage runs the unit and docker tests under branch coverage and requires 90% overall and 100% on `redact.py`, `hashing.py`, `policy.py`, and `static/semgrep.py`. `mutate --changed` diffs against `origin/main` when that ref exists, otherwise local `main`. The workflow fetches full history so a pull request has `origin/main`. Mutation kill rate is 100% on `policy.py` and at least 90% on the other core files. `ci.py test` and `ci.py docker` still run those suites on their own. The docker tests that remain cover the sink and the observer. They do not start ClickHouse.
 - **Known defects:** the 21 rows of architecture §17.1. Each is fixed by a milestone task.
 
 ## Things to know before you start
 
-- Semgrep 1.180.0 lives in `.venv/bin`. Put it on `PATH` (`PATH=.venv/bin:$PATH`) until M2-11 resolves it next to `sys.executable`.
-- The ClickHouse test container `skill-warden-ch-test` runs on port 18123, with admin and `scanner` passwords `test`. The old tests need it until M2-14 removes ClickHouse.
+- Semgrep is resolved beside `sys.executable` first, then on `PATH`. The dev environment still keeps Semgrep 1.180.0 in `.venv/bin`.
+- `docker rm -f skill-warden-ch-test` is safe. Nothing in the suite starts that container.
 - The baseline ran on Python 3.14.7 with Docker 28.5.1. The design targets Python ≥ 3.11.
 - The git remote is `origin` on Cursor, not GitHub. All CI logic goes in `scripts/ci.py` (decision 0014), so the gates run locally. The workflow files only matter once the repository is on GitHub.
 - Never commit a real key. Fixtures use `example.invalid`, `EXAMPLE_TOKEN` and `FAKE-CANARY`.
@@ -178,3 +180,4 @@ Two paths share the jail:
 | 2026-11-10 | M2-11. The static stage fails closed. A missing binary, a bad exit, garbage output, a timeout, a skipped target, and a missing liveness hit are named errors. |
 | 2026-11-10 | M2-12. The memory rule matches `./MEMORY.md`, and a zero-width character in the name is caught on the normalized copy. |
 | 2026-11-10 | M2-13. The pipeline runs intake, the normalized copy, and the fail-closed static stage. Later stages skip once a block is certain, unless `--full`. |
+| 2026-11-10 | M2-14. ClickHouse and the hackathon modules are gone. `--detonate` stays unavailable until M6-04. |

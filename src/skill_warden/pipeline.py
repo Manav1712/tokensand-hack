@@ -2,20 +2,17 @@
 
 from __future__ import annotations
 
-import secrets
 import sqlite3
 import sys
 import time
 from collections.abc import Callable, Sequence
 from pathlib import Path
-from tempfile import TemporaryDirectory, mkdtemp
+from tempfile import mkdtemp
 from typing import Literal
 from uuid import uuid4
 
 from skill_warden.findings import build_rows
 from skill_warden.intake import LoadedSkill, load_skill, write_normalized
-from skill_warden.jail import detonate as jail_detonate
-from skill_warden.memory_store import MemoryStore
 from skill_warden.models import (
     Finding,
     Report,
@@ -28,8 +25,7 @@ from skill_warden.models import (
 from skill_warden.policy import block_not_finished, decide
 from skill_warden.reader import ReaderResult
 from skill_warden.redact import contains_secret, redact
-from skill_warden.registry import SkillRecord as JailSkill
-from skill_warden.semgrep import rule_path
+from skill_warden.static.semgrep import rule_path
 from skill_warden.static.semgrep import scan as static_scan
 
 _READER_LIMIT = 60_000
@@ -271,38 +267,12 @@ def _detonate(
     if skip or _expired(clock, deadline):
         return (_skipped("detonation") if skip else _timed_out("detonation"), "")
     started = clock()
-    nonce = secrets.token_hex(16)
-    try:
-        result = StageResult("detonation", "ok", _jail_findings(loaded, nonce))
-    except Exception:  # noqa: BLE001
-        result = StageResult(
-            "detonation",
-            "failed",
-            (_finding(Source.JAIL, "detonation_failed", Severity.ERROR),),
-        )
-    return _with_elapsed(result, started, clock), nonce
-
-
-def _jail_findings(loaded: LoadedSkill, nonce: str) -> tuple[Finding, ...]:
-    store = MemoryStore(secrets=[nonce])
-    skill = JailSkill(
-        publisher="local",
-        name=loaded.record.name,
-        version="0",
-        path=loaded.record.path,
-        content_hash=loaded.record.content_sha256 or "",
+    result = StageResult(
+        "detonation",
+        "failed",
+        (_finding(Source.JAIL, "detonation_unavailable", Severity.ERROR),),
     )
-    run_id = uuid4()
-    with TemporaryDirectory() as scratch:
-        jail_detonate(
-            skill,
-            store,
-            run_id=run_id,
-            nonce=nonce,
-            rules=rule_path(),
-            scratch=Path(scratch),
-        )
-    return tuple(Finding.from_row(row) for row in store.rows(run_id))
+    return _with_elapsed(result, started, clock), ""
 
 
 def _timeout_report(

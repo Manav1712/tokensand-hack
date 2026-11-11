@@ -1,18 +1,11 @@
-import hashlib
-import uuid
 from pathlib import Path
 
 import pytest
 
-from skill_warden.errors import RedactionError
-from skill_warden.hashing import content_hash, content_hash_v2
-from skill_warden.jail import detonate
-from skill_warden.memory_store import MemoryStore
+from skill_warden.hashing import content_hash_v2
 from skill_warden.models import Report, Severity, Source, Verdict
 from skill_warden.pipeline import scan, scan_skill
 from skill_warden.reader import ReaderResult
-from skill_warden.registry import SkillRecord
-from skill_warden.semgrep import rule_path
 from skill_warden.static.semgrep import scan as static_scan
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -39,30 +32,6 @@ class _Boom:
 
 def _boom(*_args: object, **_kwargs: object) -> None:
     raise RuntimeError("stage failed")
-
-
-def _row(source: str, rule_id: str, severity: str, excerpt: str = "") -> dict[str, str]:
-    return {
-        "source": source,
-        "rule_id": rule_id,
-        "severity": severity,
-        "file": "",
-        "excerpt": excerpt,
-        "evidence_hash": hashlib.sha256(excerpt.encode()).hexdigest(),
-    }
-
-
-_OK = _row("semgrep", "semgrep.ok", "info")
-
-
-def _record(path: Path, name: str) -> SkillRecord:
-    return SkillRecord(
-        publisher="example",
-        name=name,
-        version="1.0.0",
-        path=path,
-        content_hash=content_hash(path),
-    )
 
 
 def test_memory_poison_is_block() -> None:
@@ -139,13 +108,11 @@ def test_reader_with_no_flags_stays_allow() -> None:
     assert [finding.rule_id for finding in report.findings] == ["semgrep.ok", "reader.ok"]
 
 
-def test_detonate_false_does_not_call_jail(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("skill_warden.pipeline.jail_detonate", _boom)
-    monkeypatch.setattr("skill_warden.jail.detonate", _boom)
-
+def test_detonate_false_leaves_detonation_unrequested() -> None:
     report = scan_skill(CLEAN, detonate=False)
 
     assert report.verdict == Verdict("ALLOW", "clean", "")
+    assert any(item.stage == "detonation" and item.status == "skipped" for item in report.coverage)
 
 
 @pytest.mark.parametrize(
@@ -167,7 +134,6 @@ def test_stage_exception_is_block_not_finished(
     elif stage == "policy.decide":
         monkeypatch.setattr("skill_warden.pipeline.decide", _boom)
     else:
-        monkeypatch.setattr("skill_warden.pipeline.jail_detonate", _boom)
         detonate_skill = True
 
     report = scan_skill(CLEAN, llm=llm, detonate=detonate_skill)
@@ -182,7 +148,7 @@ def test_stage_exception_is_block_not_finished(
     if stage == "semgrep.scan":
         assert report.verdict == Verdict("BLOCK", "tool_error", "semgrep_failed")
         return
-    assert report.verdict == Verdict("BLOCK", "tool_error", "detonation_failed")
+    assert report.verdict == Verdict("BLOCK", "tool_error", "detonation_unavailable")
 
 
 def test_scan_continues_after_one_skill_raises(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -207,126 +173,3 @@ def test_scan_continues_after_one_skill_raises(monkeypatch: pytest.MonkeyPatch, 
     assert reports[0].verdict == Verdict("BLOCK", "tool_error", "semgrep_failed")
     assert reports[1].verdict == Verdict("ALLOW", "clean", "")
 
-
-@pytest.mark.parametrize(
-    ("rows", "status", "expected"),
-    [
-        ([_OK], "completed", ("ALLOW", "clean")),
-        ([_OK, _row("semgrep", "rule.high", "high")], "completed", ("BLOCK", "high_finding")),
-        ([_row("canary", "honeytoken", "critical")], "completed", ("BLOCK", "canary")),
-        (
-            [_row("reader", "reader_invalid", "error"), _OK],
-            "completed",
-            ("BLOCK", "reader_error"),
-        ),
-        ([_row("policy", "ruleset_empty", "error")], "completed", ("BLOCK", "tool_error")),
-        ([_row("semgrep", "rule.medium", "medium")], "completed", ("ASK", "medium_only")),
-        ([], "completed", ("BLOCK", "no_findings")),
-        ([_row("reader", "note", "low")], "completed", ("BLOCK", "semgrep_missing")),
-        ([_OK], "timeout", ("BLOCK", "timeout")),
-        ([_OK], "running", ("BLOCK", "not_finished")),
-    ],
-)
-def test_memory_store_verdict_uses_policy(
-    rows: list[dict[str, str]],
-    status: str,
-    expected: tuple[str, str],
-) -> None:
-    store = MemoryStore()
-    run_id = uuid.uuid4()
-
-    store.insert_run(run_id, "hash", backend="local", budget_cents=0)
-    store.insert_findings(run_id, rows)
-    store.finish_run(run_id, status)
-
-    assert store.verdict(run_id) == expected
-
-
-def test_unfinished_and_unknown_runs_are_not_finished() -> None:
-    store = MemoryStore()
-    run_id = uuid.uuid4()
-    store.insert_run(run_id, "hash")
-    store.insert_findings(run_id, [_OK])
-
-    assert store.verdict(run_id) == ("BLOCK", "not_finished")
-    assert store.verdict(uuid.uuid4()) == ("BLOCK", "not_finished")
-
-
-def test_memory_store_rejects_secret_excerpts_and_keeps_runs_apart() -> None:
-    store = MemoryStore(secrets=["abcd", "abc"])
-    leaked = uuid.uuid4()
-    store.insert_run(leaked, "hash")
-    with pytest.raises(RedactionError, match="excerpt contains a configured secret"):
-        store.insert_findings(leaked, [_row("semgrep", "semgrep.ok", "info", excerpt="token abcd")])
-    store.finish_run(leaked, "completed")
-
-    short = uuid.uuid4()
-    store.insert_run(short, "hash", backend="local", budget_cents=1)
-    store.insert_findings(short, [_row("semgrep", "semgrep.ok", "info", excerpt="abc")])
-    store.finish_run(short, "completed")
-
-    blocked = uuid.uuid4()
-    store.insert_run(blocked, "other")
-    store.insert_findings(blocked, [_OK, _row("semgrep", "rule.high", "high")])
-    store.finish_run(blocked, "completed")
-
-    assert store.verdict(short) == ("ALLOW", "clean")
-    assert store.verdict(blocked) == ("BLOCK", "high_finding")
-    assert store.verdict(leaked) == ("BLOCK", "no_findings")
-
-
-class _SpyStore(MemoryStore):
-    def __init__(self, secrets: list[str]) -> None:
-        super().__init__(secrets=secrets)
-        self.batches: list[list[dict[str, str]]] = []
-
-    def insert_findings(self, run_id: uuid.UUID, rows: list[dict[str, str]]) -> None:
-        self.batches.append(list(rows))
-        super().insert_findings(run_id, rows)
-
-
-def _justifies_block(rows: list[dict[str, str]]) -> bool:
-    return any(
-        row["source"] == "canary" or row["severity"] in {"high", "critical"}
-        for row in rows
-    )
-
-
-@pytest.mark.docker
-def test_detonate_without_clickhouse(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    def fail_client(*_args: object, **_kwargs: object) -> None:
-        pytest.fail("clickhouse")
-
-    monkeypatch.setattr("clickhouse_connect.get_client", fail_client)
-
-    reports = scan([STEAL, CLEAN], detonate=True)
-
-    assert reports[0].verdict.decision == "BLOCK"
-    assert reports[0].verdict.reason in {"canary", "high_finding"}
-    assert _justifies_block([finding.to_row() for finding in reports[0].findings])
-    assert reports[1].verdict == Verdict("ALLOW", "clean", "")
-
-    nonce = "FAKE-CANARY-NONCE"
-    expectations = (
-        (STEAL, "steal-key", "BLOCK", {"canary", "high_finding"}),
-        (CLEAN, "clean-date", "ALLOW", {"clean"}),
-    )
-    for path, name, decision, reasons in expectations:
-        scratch = tmp_path / name
-        scratch.mkdir()
-        store = _SpyStore([nonce])
-        run_id = uuid.uuid4()
-        result = detonate(
-            _record(path, name),
-            store,
-            run_id=run_id,
-            nonce=nonce,
-            rules=rule_path(),
-            scratch=scratch,
-        )
-
-        assert result[0] == decision
-        assert result[1] in reasons
-        assert store.verdict(run_id) == result
-        if decision == "BLOCK":
-            assert _justifies_block(store.batches[0])

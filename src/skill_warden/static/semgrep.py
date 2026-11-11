@@ -11,6 +11,7 @@ import sys
 import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from importlib.resources import as_file, files
 from pathlib import Path
 from typing import Literal
 
@@ -32,6 +33,13 @@ class Completed:
 
 
 Runner = Callable[[Sequence[str], Path, Mapping[str, str], float], Completed]
+
+
+def rule_path() -> Path:
+    """The bundled memory rule. The path is valid for this process."""
+    resource = files("skill_warden").joinpath("rules", "memory.yaml")
+    with as_file(resource) as path:
+        return Path(path)
 
 
 def binary_name() -> str:

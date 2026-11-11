@@ -7,7 +7,6 @@ name = "skill-warden"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
-    "clickhouse-connect",
     "httpx",
     "pyyaml",
     "semgrep>=1.180,<2",
@@ -33,7 +32,7 @@ pythonpath = ["src"]
 testpaths = ["tests"]
 addopts = "-m 'not docker and not live_llm and not packaging and not case_sensitive_fs'"
 markers = [
-    "docker: needs Docker, including the ClickHouse test container",
+    "docker: needs Docker",
     "live_llm: needs a live model API key",
     "packaging: builds and installs a wheel",
     "case_sensitive_fs: needs a case-sensitive filesystem",
@@ -62,7 +61,6 @@ files = [
     "src/skill_warden/hashing.py",
     "src/skill_warden/history.py",
     "src/skill_warden/intake.py",
-    "src/skill_warden/memory_store.py",
     "src/skill_warden/models.py",
     "src/skill_warden/paths.py",
     "src/skill_warden/pipeline.py",
@@ -103,7 +101,6 @@ type = "forbidden"
 source_modules = [
     "skill_warden.frontmatter",
     "skill_warden.intake",
-    "skill_warden.semgrep",
     "skill_warden.static",
     "skill_warden.reader",
     "skill_warden.jail",
