@@ -37,6 +37,15 @@ _PASSING_COVERAGE = json.dumps(
                     "num_partial_branches": 0,
                 },
             },
+            "src/skill_warden/static/semgrep.py": {
+                "missing_lines": [],
+                "missing_branches": [],
+                "summary": {
+                    "percent_covered": 100,
+                    "missing_branches": 0,
+                    "num_partial_branches": 0,
+                },
+            },
         },
     }
 )
@@ -70,14 +79,16 @@ _TYPE_FILES = [
     "src/skill_warden/__init__.py",
     "src/skill_warden/cli.py",
     "src/skill_warden/errors.py",
+    "src/skill_warden/frontmatter.py",
     "src/skill_warden/hashing.py",
     "src/skill_warden/history.py",
-    "src/skill_warden/memory_store.py",
+    "src/skill_warden/intake.py",
     "src/skill_warden/models.py",
     "src/skill_warden/paths.py",
     "src/skill_warden/pipeline.py",
     "src/skill_warden/policy.py",
     "src/skill_warden/redact.py",
+    "src/skill_warden/static/semgrep.py",
 ]
 
 
@@ -104,7 +115,7 @@ def test_lint_test_and_docker_argv():
         assert runner.calls == [_expected(command)]
 
 
-def _expected_coverage() -> list[list[str]]:
+def _expected_coverage(ci) -> list[list[str]]:
     py = sys.executable
     return [
         [
@@ -119,7 +130,7 @@ def _expected_coverage() -> list[list[str]]:
             "-o",
             "addopts=",
             "-m",
-            "not live_llm and not packaging and not case_sensitive_fs",
+            ci._coverage_mark(),
             "-q",
         ],
         [py, "-m", "coverage", "json", "-o", str(ROOT / "coverage.json")],
@@ -134,7 +145,7 @@ def test_pr_runs_lint_types_imports_then_coverage():
         _expected("lint"),
         _expected("types"),
         _expected("imports"),
-        *_expected_coverage(),
+        *_expected_coverage(ci),
     ]
 
 
@@ -167,7 +178,7 @@ def test_pr_stops_when_coverage_fails():
         _expected("lint"),
         _expected("types"),
         _expected("imports"),
-        _expected_coverage()[0],
+        _expected_coverage(ci)[0],
     ]
 
 
@@ -185,8 +196,17 @@ def test_pr_stops_when_mutate_changed_fails(monkeypatch, tmp_path):
     assert runner.calls[0] == _expected("lint")
     assert runner.calls[1] == _expected("types")
     assert runner.calls[2] == _expected("imports")
-    assert runner.calls[3:5] == _expected_coverage()
+    assert runner.calls[3:5] == _expected_coverage(ci)
     assert runner.calls[5][:2] == ["mutmut", "run"]
+
+
+def test_coverage_includes_case_collision_on_a_case_sensitive_disk():
+    ci = _load_ci()
+    mark = ci._coverage_mark()
+    if ci._filesystem_is_case_sensitive():
+        assert "not case_sensitive_fs" not in mark
+    else:
+        assert "not case_sensitive_fs" in mark
 
 
 def test_unknown_command_does_not_run():

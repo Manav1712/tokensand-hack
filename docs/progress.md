@@ -6,6 +6,30 @@ Read this first when you come back. The plan is `docs/milestones.md`, the design
 
 Newest first. Two lines per session: where you stopped, and what's next.
 
+- **2026-11-10:**
+  - **Stopped:** M2-14. ClickHouse, the hackathon modules, v1 `content_hash`, and `jail.detonate` are gone. `--detonate` is BLOCK `tool_error` `detonation_unavailable` until M6-04. The acceptance grep over `src`, `tests`, and `pyproject.toml` is clean. `PATH=.venv/bin:$PATH .venv/bin/python -m pytest -q` exits 0 (382 passed).
+  - **Next:** M3-01 Benign corpus. M1 acceptance is still open for `pipx install`. There is no end-to-end detonation until M6-04.
+- **2026-11-10:**
+  - **Stopped:** M2-13. `pipeline.scan_skill` runs intake, a normalized copy, the fail-closed static stage, an optional reader, and optional detonation. A blocking finding skips later stages unless `--full`. The auto clock, stage failures, and a secret in rendered output are covered by `tests/test_pipeline_guards.py`.
+  - **Next:** M2-14 Remove ClickHouse and the dead modules. M1 acceptance is still open for `pipx install` and `scan --detonate` from the CLI.
+- **2026-11-10:**
+  - **Stopped:** M2-12. The memory regex is one single-line scalar. `dotslash-memory` and `zero-width-memory` are BLOCK through the new static stage. The zero-width fixture is scanned from the normalized copy and also records `obfuscation.unicode`. `PATH=.venv/bin:$PATH .venv/bin/python scripts/ci.py mutate --changed` exits 0.
+  - **Next:** M2-13 Pipeline proper. M1 acceptance is still open for `pipx install` and `scan --detonate` from the CLI.
+- **2026-11-10:**
+  - **Stopped:** M2-11. `static/semgrep.py` resolves the binary beside the interpreter first, scans explicit files with a minimal environment, and fails closed for every §9.3 row. The liveness canary is required and then dropped. The module is on the core list: 100% branch coverage and about 94% of mutants killed. `PATH=.venv/bin:$PATH .venv/bin/python scripts/ci.py pr` exits 0 (483 passed under coverage).
+  - **Next:** M2-12 Fix the memory rule. M1 acceptance is still open for `pipx install` and `scan --detonate` from the CLI.
+- **2026-11-10:**
+  - **Stopped:** M2-10. Hostile trees return named findings and do not raise: a 30-level path and a 255-byte name are inventoried, an invalid UTF-8 name is `bad_filename`, a symlink loop is `symlink`, a FIFO is `unreadable`, a sparse file over the cap is `too_large` without a read, and NFKC-equal names are `nfkc_collision`. `PATH=.venv/bin:$PATH .venv/bin/python scripts/ci.py pr` exits 0 (443 passed under coverage).
+  - **Next:** M2-11 Static stage, fail-closed. M1 acceptance is still open for `pipx install` and `scan --detonate` from the CLI.
+- **2026-11-10:**
+  - **Stopped:** M2-09. `frontmatter.py` compares `yaml.safe_load` with a line parser. Each §8 step 6 row has a test, a `!!python/object` tag never builds an object, and generated plain frontmatter agrees. `load_skill` uses the YAML name when it is a string. `PATH=.venv/bin:$PATH .venv/bin/python scripts/ci.py pr` exits 0 (436 passed under coverage).
+  - **Next:** M2-10 Hostile trees. M1 acceptance is still open for `pipx install` and `scan --detonate` from the CLI.
+- **2026-11-10:**
+  - **Stopped:** M2-08. `write_normalized` copies text files into a 0700 directory, strips `Cf` characters, and NFKC-normalizes the rest. A U+200B inside `MEMORY.md` is `obfuscation.unicode` and is gone from the copy. A non-breaking space is normalized and is not a finding. Original bytes and the v2 hash stay put. `PATH=.venv/bin:$PATH .venv/bin/python scripts/ci.py pr` exits 0 (416 passed under coverage).
+  - **Next:** M2-09 Frontmatter read two ways. M1 acceptance is still open for `pipx install` and `scan --detonate` from the CLI.
+- **2026-11-10:**
+  - **Stopped:** M2-07. `intake.discover` finds a skill directory, a `SKILL.md` file, or a search root four levels deep, and resolves a symlink root once as `symlink_root`. `load_skill` records symlink, FIFO, cap, and text or binary findings, and hashes a clean tree with `content_hash_v2`. `PATH=.venv/bin:$PATH .venv/bin/python scripts/ci.py pr` exits 0 (411 passed under coverage). The case-collision test is marked `case_sensitive_fs` and runs in that coverage command on a case-sensitive disk.
+  - **Next:** M2-08 Normalized copy. M1 acceptance is still open for `pipx install` and `scan --detonate` from the CLI.
 - **2026-11-05:**
   - **Stopped:** `content_hash_v2` fails closed. An unlistable directory or an unreadable file raises `SkillTreeError("unreadable")` with no path in the message. Path bytes go through `os.fsencode`, so a non-UTF-8 name is hashed. Owner-only execute (`0o744`) matches any other execute bit, and setuid without an execute bit stays `-`. A matching approval is still ignored. `StageResult.public()` is the safe mapping; `asdict` still includes secrets. `PATH=.venv/bin:$PATH .venv/bin/python scripts/ci.py pr` exits 0 (373 passed under coverage, 92.19% overall). `hashing.py` and `policy.py` are at 100% branch coverage. `policy.py` is 188/188 mutants killed. `hashing.py` is 113/120 (94.2%): the five equivalent v1 survivors remain, and two v2 survivors drop the explicit `"big"` byteorder, which is the default.
   - **Next:** M2-07 Intake inventory. M1 acceptance is still open for `pipx install` and `scan --detonate` from the CLI.
@@ -65,9 +89,9 @@ Newest first. Two lines per session: where you stopped, and what's next.
 
 Limit: one task in **Now**, two at most.
 
-- **Now:** M2-07 Intake inventory.
-- **Next:** M2-08 Normalized copy.
-- **Later:** M2-08 through M2-14, then M3–M10 in order. M1 acceptance (`pipx install`, and `scan --detonate` from the CLI) is still open.
+- **Now:** M3-01 Benign corpus.
+- **Next:** M3-02 Static eval and the ratchet.
+- **Later:** M3–M10 in order. M1 acceptance (`pipx install`) is still open. There is no end-to-end detonation until M6-04. Docker build contexts still use `parents[2]` until M6-01.
 
 ## Milestones
 
@@ -75,7 +99,7 @@ Limit: one task in **Now**, two at most.
 | --- | --- | --- |
 | M0 Hackathon baseline | done | 169 tests passed on 14 October 2026. Commits `8a0f168` (code) and `3274e8b` (plans) |
 | M1 Walking skeleton | in progress | M1-01 through M1-10 done. Acceptance still open for `pipx install` and `scan --detonate` from the CLI. `scripts/ci.py pr` exits 0 |
-| M2 Fail-closed core | in progress | M2-01 through M2-06 done. M2-07 is next |
+| M2 Fail-closed core | in progress | M2-01 through M2-14 done. Acceptance still open for the Docker `parents[2]` half of defect #10 |
 | M3 Detection quality | not started | |
 | M4 Bring your own model | not started | |
 | M5 Living with false positives | not started | |
@@ -97,14 +121,14 @@ Fail-closed core. Do these in order, one at a time. Tick a box when that task's 
 - [x] **M2-04 — Full domain types.** `FileEntry`, `SkillRecord` with `hash_version`, `StageResult` with non-serialized `secrets`, `RunOutcome` with `content_sha256` and `hash_version`, `Approval`, and `Verdict.approval`. Done when `tests/test_models.py` covers the new types.
 - [x] **M2-05 — Policy: the full decision table.** `decide(outcome, approval=None)` for §12 rows 1–11 and 13. Rows 8–10 are a requested stage that came back without findings. Add `policy.py` to the core and mutation lists. Done when every §12 case with no approval passes, determinism and monotonicity hold, and the mutation floor is 100%.
 - [x] **M2-06 — Content hash v2.** `hashing.content_hash_v2` covers every file, including `HASH` and dotfiles, with a mode byte for the execute bit and length-prefixed entries. Done when the §16.3 hash properties pass, including "a top-level `HASH` file changes the hash".
-- [ ] **M2-07 — Intake inventory.** `intake.discover` and `load_skill`: symlink and FIFO errors, the caps, text and binary classification, and `intake.case_collisions`. Done when `tests/test_intake.py` covers §8 steps 1, 2 and 4. The end-to-end case-collision test is marked `case_sensitive_fs`.
-- [ ] **M2-08 — Normalized copy.** NFKC plus `Cf` stripping into a private 0700 temporary directory, with `obfuscation.unicode` recorded against the file. Done when a U+200B inside `MEMORY.md` gives a finding and a clean copy, and a non-breaking space alone gives no finding.
-- [ ] **M2-09 — Frontmatter read two ways.** `frontmatter.py` compares `yaml.safe_load` with the line parser, per §8 step 6. Add `pyyaml`. Done when `tests/test_frontmatter.py` has one test per table row, a `!!python/object` tag never builds an object, and the agreement property holds for generated frontmatter inside the subset.
-- [ ] **M2-10 — Hostile trees.** 30 levels of nesting, a 255-byte name, an invalid-UTF-8 name, a symlink loop, a FIFO, a sparse file larger than the cap, and names that collide after NFKC. Done when each gives a named finding and none raises.
-- [ ] **M2-11 — Static stage, fail-closed.** `static/semgrep.py` resolves the binary next to `sys.executable` first, passes explicit file targets, uses a minimal subprocess environment, covers every §9.3 row, and runs the liveness canary. Done when each §9.3 row has a test with an injected `run` and one with `fake_binary`.
-- [ ] **M2-12 — Fix the memory rule.** The regex is a single-line scalar. Add the `dotslash-memory` and `zero-width-memory` fixtures. Done when `append the note to ./MEMORY.md` is BLOCK, and the reachability test emits `skill-memory-file-persistence` from a fixture.
-- [ ] **M2-13 — Pipeline proper.** Replace the crude pipeline with the §7 stage protocol: stage isolation, short-circuit with `--full`, the `"auto"` global clock, and redaction before rendering. A secret in output is BLOCK `not_finished`. Done when `tests/test_pipeline_guards.py` covers §7.2 and §7.3, and no stage receives `os.environ`.
-- [ ] **M2-14 — Remove ClickHouse and the dead modules.** Delete `store`, `verdict`, `breaker`, `memory`, `registry`, `orchestrator`, the old `semgrep.py`, `jail.detonate`, `MemoryStore`, `schema/*.sql`, `scripts/try_sample_skill.py`, their tests, and v1 `content_hash`. Port `test_first_block.py` and `test_reader_path.py` to the pipeline tests. Done when the acceptance grep is clean and the suite passes without `clickhouse-connect`. There is no end-to-end detonation from here until M6-04.
+- [x] **M2-07 — Intake inventory.** `intake.discover` and `load_skill`: symlink and FIFO errors, the caps, text and binary classification, and `intake.case_collisions`. Done when `tests/test_intake.py` covers §8 steps 1, 2 and 4. The end-to-end case-collision test is marked `case_sensitive_fs`.
+- [x] **M2-08 — Normalized copy.** NFKC plus `Cf` stripping into a private 0700 temporary directory, with `obfuscation.unicode` recorded against the file. Done when a U+200B inside `MEMORY.md` gives a finding and a clean copy, and a non-breaking space alone gives no finding.
+- [x] **M2-09 — Frontmatter read two ways.** `frontmatter.py` compares `yaml.safe_load` with the line parser, per §8 step 6. Add `pyyaml`. Done when `tests/test_frontmatter.py` has one test per table row, a `!!python/object` tag never builds an object, and the agreement property holds for generated frontmatter inside the subset.
+- [x] **M2-10 — Hostile trees.** 30 levels of nesting, a 255-byte name, an invalid-UTF-8 name, a symlink loop, a FIFO, a sparse file larger than the cap, and names that collide after NFKC. Done when each gives a named finding and none raises.
+- [x] **M2-11 — Static stage, fail-closed.** `static/semgrep.py` resolves the binary next to `sys.executable` first, passes explicit file targets, uses a minimal subprocess environment, covers every §9.3 row, and runs the liveness canary. Done when each §9.3 row has a test with an injected `run` and one with `fake_binary`.
+- [x] **M2-12 — Fix the memory rule.** The regex is a single-line scalar. Add the `dotslash-memory` and `zero-width-memory` fixtures. Done when `append the note to ./MEMORY.md` is BLOCK, and the reachability test emits `skill-memory-file-persistence` from a fixture.
+- [x] **M2-13 — Pipeline proper.** Replace the crude pipeline with the §7 stage protocol: stage isolation, short-circuit with `--full`, the `"auto"` global clock, and redaction before rendering. A secret in output is BLOCK `not_finished`. Done when `tests/test_pipeline_guards.py` covers §7.2 and §7.3, and no stage receives `os.environ`.
+- [x] **M2-14 — Remove ClickHouse and the dead modules.** Delete `store`, `verdict`, `breaker`, `memory`, `registry`, `orchestrator`, the old `semgrep.py`, `jail.detonate`, `MemoryStore`, `schema/*.sql`, `scripts/try_sample_skill.py`, their tests, and v1 `content_hash`. Port `test_first_block.py` and `test_reader_path.py` to the pipeline tests. Done when the acceptance grep is clean and the suite passes without `clickhouse-connect`. There is no end-to-end detonation from here until M6-04.
 
 ## Operator gates
 
@@ -121,16 +145,15 @@ Fail-closed core. Do these in order, one at a time. Tick a box when that task's 
 
 Two paths share the jail:
 
-- **CLI (M1):** `skill-warden scan` calls `pipeline.scan`. That still hashes the folder with v1 `content_hash`, runs Semgrep, maps findings, and asks `policy.decide(RunOutcome)`. `content_hash_v2` exists and is not wired in until intake. `--llm` calls the reader. `--detonate` runs `jail.detonate` through `MemoryStore`, with no ClickHouse. A scan can append one row to `<data dir>/history.sqlite3`.
-- **ClickHouse (until M2-14):** `orchestrator.py` still writes to `store.py`, and `schema/verdict.sql` still picks that verdict. `breaker.py`, `memory.py`, and `registry.py` stay on this path.
-- **Jail:** `jail.detonate` packs the skill, plants a honeytoken home, and runs `scripts/*.sh` and `SKILL.md` blocks under strace. The sink is the fixed network `jailnet`.
-- **Checks:** `python scripts/ci.py pr` runs ruff, then `ci.py types`, then `ci.py imports`, then `ci.py coverage`, then `ci.py mutate --changed`. `types` is `mypy --strict` on the v2 module list in `[tool.mypy] files`. `imports` is import-linter. Coverage runs the unit and docker tests under branch coverage and requires 90% overall and 100% on `redact.py`, `hashing.py`, and `policy.py`. `mutate --changed` diffs against `origin/main` when that ref exists, otherwise local `main`. The workflow fetches full history so a pull request has `origin/main`. Mutation kill rate is 100% on `policy.py` and at least 90% on the other core files. `ci.py test` and `ci.py docker` still run those suites on their own. The docker tests share one ClickHouse `scanner` fixture.
+- **CLI:** `skill-warden scan` discovers skills, then `pipeline.scan` inventories the tree, hashes it with `content_hash_v2`, normalizes text, and runs the fail-closed static stage. `--llm` calls the crude reader on normalized text only. `--detonate` is BLOCK `detonation_unavailable` until M6-04. A scan can append one row to `<data dir>/history.sqlite3`.
+- **Jail:** `jail.plan` and `pack_skill` remain. `jail.detonate` is gone until M6-04. The sink is still the fixed network `jailnet`.
+- **Checks:** `python scripts/ci.py pr` runs ruff, then `ci.py types`, then `ci.py imports`, then `ci.py coverage`, then `ci.py mutate --changed`. `types` is `mypy --strict` on the v2 module list in `[tool.mypy] files`. `imports` is import-linter. Coverage runs the unit and docker tests under branch coverage and requires 90% overall and 100% on `redact.py`, `hashing.py`, `policy.py`, and `static/semgrep.py`. `mutate --changed` diffs against `origin/main` when that ref exists, otherwise local `main`. The workflow fetches full history so a pull request has `origin/main`. Mutation kill rate is 100% on `policy.py` and at least 90% on the other core files. `ci.py test` and `ci.py docker` still run those suites on their own. The docker tests that remain cover the sink and the observer. They do not start ClickHouse.
 - **Known defects:** the 21 rows of architecture §17.1. Each is fixed by a milestone task.
 
 ## Things to know before you start
 
-- Semgrep 1.180.0 lives in `.venv/bin`. Put it on `PATH` (`PATH=.venv/bin:$PATH`) until M2-11 resolves it next to `sys.executable`.
-- The ClickHouse test container `skill-warden-ch-test` runs on port 18123, with admin and `scanner` passwords `test`. The old tests need it until M2-14 removes ClickHouse.
+- Semgrep is resolved beside `sys.executable` first, then on `PATH`. The dev environment still keeps Semgrep 1.180.0 in `.venv/bin`.
+- `docker rm -f skill-warden-ch-test` is safe. Nothing in the suite starts that container.
 - The baseline ran on Python 3.14.7 with Docker 28.5.1. The design targets Python ≥ 3.11.
 - The git remote is `origin` on Cursor, not GitHub. All CI logic goes in `scripts/ci.py` (decision 0014), so the gates run locally. The workflow files only matter once the repository is on GitHub.
 - Never commit a real key. Fixtures use `example.invalid`, `EXAMPLE_TOKEN` and `FAKE-CANARY`.
@@ -150,3 +173,11 @@ Two paths share the jail:
 | 2026-11-05 | M2-05. `decide` takes a `RunOutcome`. Rows 1–11 and 13 pass with no approval. `policy.py` is core: 100% branch coverage, 188/188 mutants killed. |
 | 2026-11-05 | M2-06. `content_hash_v2` includes `HASH`, dotfiles, and an execute-bit mode byte. v1 `content_hash` is unchanged and still used by the pipeline. |
 | 2026-11-05 | `content_hash_v2` raises `unreadable` for an unlistable directory or an unreadable file, and hashes raw path bytes. `scripts/ci.py pr` exits 0 (373 passed, 92.19% overall). |
+| 2026-11-10 | M2-07. Intake inventories a skill without following links, and discovery accepts a linked root. `scripts/ci.py pr` exits 0 (411 passed under coverage). |
+| 2026-11-10 | M2-08. Text files are copied with `Cf` characters stripped and NFKC applied. A zero-width character is a finding; a non-breaking space is not. |
+| 2026-11-10 | M2-09. Frontmatter is read with YAML and a line parser. Disagreement, complex constructs, and parse failures are findings. `scripts/ci.py pr` exits 0 (436 passed under coverage). |
+| 2026-11-10 | M2-10. Hostile trees get named intake findings and do not raise. `scripts/ci.py pr` exits 0 (443 passed under coverage). |
+| 2026-11-10 | M2-11. The static stage fails closed. A missing binary, a bad exit, garbage output, a timeout, a skipped target, and a missing liveness hit are named errors. |
+| 2026-11-10 | M2-12. The memory rule matches `./MEMORY.md`, and a zero-width character in the name is caught on the normalized copy. |
+| 2026-11-10 | M2-13. The pipeline runs intake, the normalized copy, and the fail-closed static stage. Later stages skip once a block is certain, unless `--full`. |
+| 2026-11-10 | M2-14. ClickHouse and the hackathon modules are gone. `--detonate` stays unavailable until M6-04. |

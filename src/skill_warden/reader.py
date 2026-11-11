@@ -25,7 +25,7 @@ class Reader:
     def __init__(
         self,
         api_key: str,
-        base_url: str = "https://api.akashml.com/v1",
+        base_url: str = "https://api.example.invalid/v1",
         model: str = "openai/gpt-oss-120b",
         transport: httpx.BaseTransport | None = None,
     ) -> None:

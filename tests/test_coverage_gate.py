@@ -11,6 +11,7 @@ CORE = [
     "src/skill_warden/redact.py",
     "src/skill_warden/hashing.py",
     "src/skill_warden/policy.py",
+    "src/skill_warden/static/semgrep.py",
 ]
 
 
@@ -111,7 +112,10 @@ def test_coverage_command_uses_ci_profile_and_checks_the_report(tmp_path, monkey
     assert "run" in calls[0]
     assert "--branch" in calls[0]
     assert "--source=src/skill_warden" in calls[0]
-    assert "not live_llm and not packaging and not case_sensitive_fs" in calls[0]
+    mark = ci._coverage_mark()
+    assert mark in calls[0]
+    if ci._filesystem_is_case_sensitive():
+        assert "not case_sensitive_fs" not in mark
     assert calls[1][:4] == [sys.executable, "-m", "coverage", "json"]
 
 

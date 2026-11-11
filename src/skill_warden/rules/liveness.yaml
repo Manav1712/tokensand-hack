@@ -1,0 +1,8 @@
+rules:
+  - id: warden-liveness
+    languages: [generic]
+    severity: INFO
+    message: "Static stage liveness canary."
+    metadata:
+      category: security
+    pattern-regex: "WARDEN-LIVENESS-[0-9a-f]+"

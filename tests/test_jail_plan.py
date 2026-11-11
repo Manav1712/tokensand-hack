@@ -1,3 +1,4 @@
+import tarfile
 from pathlib import Path
 
 import pytest
@@ -15,6 +16,28 @@ def test_pack_skill_refuses_symlink_escaping_src(tmp_path):
 
     with pytest.raises(SkillTreeError):
         pack_skill(src, dest)
+
+
+def test_pack_skill_archives_files_and_internal_links(tmp_path: Path) -> None:
+    src = tmp_path / "skill"
+    src.mkdir()
+    (src / "SKILL.md").write_text("hello\n", encoding="utf-8")
+    (src / "note.md").symlink_to("SKILL.md")
+    dest = tmp_path / "out" / "skill.tar"
+
+    pack_skill(src, dest)
+
+    with tarfile.open(dest) as archive:
+        names = set(archive.getnames())
+    assert names == {"SKILL.md", "note.md"}
+
+
+def test_pack_skill_rejects_a_file(tmp_path: Path) -> None:
+    skill = tmp_path / "SKILL.md"
+    skill.write_text("hello\n", encoding="utf-8")
+
+    with pytest.raises(SkillTreeError):
+        pack_skill(skill, tmp_path / "skill.tar")
 
 
 def test_plan_argv_contains_hardening_flags():

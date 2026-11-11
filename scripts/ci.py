@@ -6,6 +6,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import tomllib
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
@@ -21,8 +22,9 @@ Runner = Callable[[Sequence[str]], int]
 ChangedFiles = Callable[[], Sequence[str]]
 _STEPS = ("lint", "test", "docker")
 # Unit tests alone leave the Docker-only modules under the floor. Packaging
-# and live-model tests stay out.
-_COVERAGE_MARK = "not live_llm and not packaging and not case_sensitive_fs"
+# and live-model tests stay out. Case-collision tests run when the disk can
+# hold two names that differ only by case.
+_CASE_SENSITIVE: bool | None = None
 
 
 def _mypy_files() -> list[str]:
@@ -63,10 +65,36 @@ def _argv(command: str) -> list[str]:
             "-o",
             "addopts=",
             "-m",
-            _COVERAGE_MARK,
+            _coverage_mark(),
             "-q",
         ]
     raise ValueError(command)
+
+
+def _filesystem_is_case_sensitive() -> bool:
+    global _CASE_SENSITIVE
+    if _CASE_SENSITIVE is not None:
+        return _CASE_SENSITIVE
+    sensitive = False
+    try:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "A").write_text("upper", encoding="utf-8")
+            (root / "a").write_text("lower", encoding="utf-8")
+            sensitive = (root / "A").read_text(encoding="utf-8") != (
+                root / "a"
+            ).read_text(encoding="utf-8")
+    except OSError:
+        sensitive = False
+    _CASE_SENSITIVE = sensitive
+    return sensitive
+
+
+def _coverage_mark() -> str:
+    mark = "not live_llm and not packaging"
+    if not _filesystem_is_case_sensitive():
+        mark += " and not case_sensitive_fs"
+    return mark
 
 
 def _coverage_json_argv() -> list[str]:
