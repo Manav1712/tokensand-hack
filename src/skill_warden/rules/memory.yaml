@@ -8,6 +8,4 @@ rules:
     metadata:
       category: security
       confidence: MEDIUM
-    pattern-regex: >-
-      (?i)(write|append|save|persist|update).{0,80}
-      (MEMORY\.md|CLAUDE\.md|agent memory)
+    pattern-regex: '(?i)(write|append|save|persist|update).{0,80}(MEMORY\.md|CLAUDE\.md|agent memory)'
