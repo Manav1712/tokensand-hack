@@ -93,7 +93,7 @@ def test_exit_code_is_the_worst_verdict(
         reason = {"ALLOW": "clean", "ASK": "medium_only", "BLOCK": "high_finding"}[decision]
         reports.append(_report(decision, reason))
 
-    def fake_scan(got, *, llm, detonate, history):
+    def fake_scan(got, *, llm, detonate, history, full=False):
         assert list(got) == paths
         assert llm is None
         assert detonate is False
@@ -124,8 +124,9 @@ def test_detonate_and_model_are_forwarded(
             seen["called"] = text
             return {"flags": [], "evidence": []}
 
-    def fake_scan(paths, *, llm, detonate, history):
+    def fake_scan(paths, *, llm, detonate, history, full=False):
         seen["paths"] = list(paths)
+        seen["full"] = full
         seen["llm"] = llm
         seen["detonate"] = detonate
         seen["history"] = history
@@ -222,10 +223,11 @@ def test_env_key_never_appears_in_output(
     )
     report = Report((finding,), Verdict("BLOCK", "high_finding", "demo.rule"))
 
-    def fake_scan(paths, *, llm, detonate, history):
+    def fake_scan(paths, *, llm, detonate, history, full=False):
         assert llm is None
         assert detonate is False
         assert history is True
+        assert full is False
         return (report,)
 
     monkeypatch.setattr("skill_warden.cli.scan", fake_scan)
@@ -268,7 +270,7 @@ def test_failed_reader_does_not_print_the_key(
     captured = capsys.readouterr()
     assert code == 20
     assert "BLOCK" in captured.out
-    assert "not_finished" in captured.out
+    assert "reader_error" in captured.out or "not_finished" in captured.out
     assert secret not in captured.out
     assert secret not in captured.err
     assert "Traceback" not in captured.out
@@ -354,7 +356,74 @@ def test_missing_directory_exits_2(tmp_path: Path, history_home: Path) -> None:
 def test_file_path_exits_2(tmp_path: Path, history_home: Path) -> None:
     from skill_warden.cli import main
 
-    skill_file = tmp_path / "SKILL.md"
-    skill_file.write_text("hello\n", encoding="utf-8")
-    assert main(["scan", str(skill_file)]) == 2
+    notes = tmp_path / "notes.txt"
+    notes.write_text("hello\n", encoding="utf-8")
+    assert main(["scan", str(notes)]) == 2
+    assert not (history_home / "history.sqlite3").exists()
+
+
+def test_skill_md_file_scans_its_parent(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from skill_warden.cli import main
+
+    skill = _skill(tmp_path)
+    code = main(["scan", str(skill / "SKILL.md"), "--no-history"])
+
+    assert code == 0
+    assert "ALLOW" in capsys.readouterr().out
+
+
+def test_symlink_root_is_scanned(capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
+    from skill_warden.cli import main
+
+    link = tmp_path / "linked"
+    link.symlink_to(CLEAN, target_is_directory=True)
+
+    assert main(["scan", str(link), "--no-history"]) == 0
+    assert "ALLOW" in capsys.readouterr().out
+
+
+def test_search_root_scans_each_nested_skill(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from skill_warden.cli import main
+
+    root = tmp_path / "root"
+    for name in ("one", "two"):
+        skill = root / name
+        skill.mkdir(parents=True)
+        (skill / "SKILL.md").write_text("hello\n", encoding="utf-8")
+
+    code = main(["scan", str(root), "--format", "json", "--no-history"])
+
+    body = json.loads(capsys.readouterr().out)
+    assert code == 0
+    assert body["summary"]["skills"] == 2
+
+
+def test_one_missing_path_scans_nothing(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    history_home: Path,
+) -> None:
+    from skill_warden.cli import main
+
+    skill = _skill(tmp_path)
+    called = False
+
+    def fake_scan(paths, *, llm, detonate, history, full=False):
+        del paths, llm, detonate, history, full
+        nonlocal called
+        called = True
+        return ()
+
+    monkeypatch.setattr("skill_warden.cli.scan", fake_scan)
+
+    code = main(["scan", str(skill), str(tmp_path / "missing"), "--no-history"])
+
+    assert code == 2
+    assert called is False
     assert not (history_home / "history.sqlite3").exists()

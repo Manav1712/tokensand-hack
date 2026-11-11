@@ -17,9 +17,11 @@ CLEAN_DIR = ROOT / "fixtures" / "skills" / "clean-date"
 _SCAN = """\
 import json
 from pathlib import Path
-from skill_warden.semgrep import rule_path, scan
-report = scan([Path("SKILL.md")], rule_path())
-print(json.dumps(report))
+from tempfile import mkdtemp
+from skill_warden.static.semgrep import rule_path, scan
+work = Path(mkdtemp())
+result = scan([Path("SKILL.md").resolve()], [rule_path()], work, timeout=30)
+print(json.dumps([finding.rule_id for finding in result.findings]))
 """
 
 
@@ -89,11 +91,8 @@ def test_installed_wheel_scan_finds_memory_rule(
         env=_installed_env(installed_python, tmp_path / "home"),
     )
     assert scanned.returncode == 0, scanned.stderr
-    report = json.loads(scanned.stdout)
-    assert any(
-        str(result.get("check_id", "")).endswith("skill-memory-file-persistence")
-        for result in report["results"]
-    )
+    rule_ids = json.loads(scanned.stdout)
+    assert any(str(rule_id).endswith("skill-memory-file-persistence") for rule_id in rule_ids)
 
 
 def test_installed_cli_scans_copied_fixture(installed_python: Path, tmp_path: Path):

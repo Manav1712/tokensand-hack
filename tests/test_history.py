@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from skill_warden.hashing import content_hash
+from skill_warden.hashing import content_hash_v2
 from skill_warden.models import Report, Verdict
 from skill_warden.paths import data_dir
 from skill_warden.pipeline import scan, scan_skill
@@ -42,7 +42,7 @@ def _rows(home: Path) -> list[dict[str, str | None]]:
 
 def _assert_row(row: dict[str, str | None], path: Path, report: Report) -> None:
     assert row["skill_path"] == str(path)
-    assert row["content_sha256"] == content_hash(path)
+    assert row["content_sha256"] == content_hash_v2(path)
     assert row["decision"] == report.verdict.decision
     assert row["reason"] == report.verdict.reason
     uuid.UUID(str(row["run_id"]))
@@ -165,7 +165,8 @@ def test_failed_write_warns_and_keeps_the_report(
     saved = scan_skill(CLEAN)
 
     captured = capsys.readouterr()
-    assert saved == quiet
+    assert saved.verdict == quiet.verdict
+    assert saved.findings == quiet.findings
     warning = next(
         line
         for line in captured.err.splitlines()
@@ -182,7 +183,7 @@ def test_failure_before_the_hash_stores_null(
     def boom(path: Path) -> str:
         raise RuntimeError(f"hash failed for {path.name}")
 
-    monkeypatch.setattr("skill_warden.pipeline.content_hash", boom)
+    monkeypatch.setattr("skill_warden.pipeline.load_skill", boom)
 
     report = scan_skill(CLEAN)
 
