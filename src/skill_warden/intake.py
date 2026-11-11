@@ -107,6 +107,7 @@ def load_skill(
         entries.append(_entry(item, kind))
         findings.extend(extra)
     findings.extend(case_collisions(relpaths))
+    findings.extend(nfkc_collisions(relpaths))
     name = _skill_name(root, entries, findings)
     digest = _digest(root, findings)
     record = SkillRecord(root, name, digest, 2, tuple(entries))
@@ -193,6 +194,27 @@ def case_collisions(relpaths: Sequence[str]) -> tuple[Finding, ...]:
     return tuple(findings)
 
 
+def nfkc_collisions(relpaths: Sequence[str]) -> tuple[Finding, ...]:
+    """Findings for distinct paths that become one path after NFKC."""
+    groups: dict[str, list[str]] = {}
+    for relpath in relpaths:
+        groups.setdefault(unicodedata.normalize("NFKC", relpath), []).append(relpath)
+    findings: list[Finding] = []
+    for paths in groups.values():
+        unique = sorted(set(paths))
+        if len(unique) < 2:
+            continue
+        findings.append(
+            _finding(
+                "nfkc_collision",
+                Severity.HIGH,
+                file=unique[0],
+                excerpt=", ".join(unique),
+            )
+        )
+    return tuple(findings)
+
+
 def _search(directory: Path, depth: int, found: list[Path]) -> None:
     if depth >= _SEARCH_DEPTH:
         return
@@ -236,6 +258,9 @@ def _inventory(root: Path) -> tuple[list[_File], list[str], list[Finding]]:
 
     def onerror(error: OSError) -> None:
         relpath = _relative(root, error.filename)
+        if not _is_utf8(relpath):
+            findings.append(_finding("bad_filename", Severity.ERROR, excerpt="invalid utf-8 name"))
+            return
         findings.append(_finding("unreadable", Severity.ERROR, file=relpath))
         if relpath:
             relpaths.append(relpath)
@@ -246,6 +271,11 @@ def _inventory(root: Path) -> tuple[list[_File], list[str], list[Finding]]:
         for name in dirnames:
             path = directory / name
             relpath = _relative(root, path)
+            if not _is_utf8(relpath):
+                findings.append(
+                    _finding("bad_filename", Severity.ERROR, excerpt="invalid utf-8 name")
+                )
+                continue
             if path.is_symlink():
                 findings.append(_finding("symlink", Severity.ERROR, file=relpath))
                 relpaths.append(relpath)
@@ -255,6 +285,11 @@ def _inventory(root: Path) -> tuple[list[_File], list[str], list[Finding]]:
         for name in filenames:
             path = directory / name
             relpath = _relative(root, path)
+            if not _is_utf8(relpath):
+                findings.append(
+                    _finding("bad_filename", Severity.ERROR, excerpt="invalid utf-8 name")
+                )
+                continue
             relpaths.append(relpath)
             if path.is_symlink():
                 findings.append(_finding("symlink", Severity.ERROR, file=relpath))
@@ -354,6 +389,14 @@ def _entry(item: _File, kind: _Kind) -> FileEntry:
 def _failed(path: Path) -> LoadedSkill:
     record = SkillRecord(path, path.name, None, 2, ())
     return LoadedSkill(record, (_finding("unreadable", Severity.ERROR),))
+
+
+def _is_utf8(relpath: str) -> bool:
+    try:
+        relpath.encode("utf-8")
+    except UnicodeEncodeError:
+        return False
+    return True
 
 
 def _relative(root: Path, raw: object) -> str:
