@@ -58,6 +58,7 @@ files = [
     "src/skill_warden/errors.py",
     "src/skill_warden/hashing.py",
     "src/skill_warden/history.py",
+    "src/skill_warden/intake.py",
     "src/skill_warden/memory_store.py",
     "src/skill_warden/models.py",
     "src/skill_warden/paths.py",
@@ -94,6 +95,7 @@ forbidden_modules = ["tests", "scripts"]
 name = "Stages do not import the CLI"
 type = "forbidden"
 source_modules = [
+    "skill_warden.intake",
     "skill_warden.semgrep",
     "skill_warden.reader",
     "skill_warden.jail",

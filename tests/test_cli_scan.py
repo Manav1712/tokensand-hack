@@ -354,7 +354,74 @@ def test_missing_directory_exits_2(tmp_path: Path, history_home: Path) -> None:
 def test_file_path_exits_2(tmp_path: Path, history_home: Path) -> None:
     from skill_warden.cli import main
 
-    skill_file = tmp_path / "SKILL.md"
-    skill_file.write_text("hello\n", encoding="utf-8")
-    assert main(["scan", str(skill_file)]) == 2
+    notes = tmp_path / "notes.txt"
+    notes.write_text("hello\n", encoding="utf-8")
+    assert main(["scan", str(notes)]) == 2
+    assert not (history_home / "history.sqlite3").exists()
+
+
+def test_skill_md_file_scans_its_parent(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from skill_warden.cli import main
+
+    skill = _skill(tmp_path)
+    code = main(["scan", str(skill / "SKILL.md"), "--no-history"])
+
+    assert code == 0
+    assert "ALLOW" in capsys.readouterr().out
+
+
+def test_symlink_root_is_scanned(capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
+    from skill_warden.cli import main
+
+    link = tmp_path / "linked"
+    link.symlink_to(CLEAN, target_is_directory=True)
+
+    assert main(["scan", str(link), "--no-history"]) == 0
+    assert "ALLOW" in capsys.readouterr().out
+
+
+def test_search_root_scans_each_nested_skill(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from skill_warden.cli import main
+
+    root = tmp_path / "root"
+    for name in ("one", "two"):
+        skill = root / name
+        skill.mkdir(parents=True)
+        (skill / "SKILL.md").write_text("hello\n", encoding="utf-8")
+
+    code = main(["scan", str(root), "--format", "json", "--no-history"])
+
+    body = json.loads(capsys.readouterr().out)
+    assert code == 0
+    assert body["summary"]["skills"] == 2
+
+
+def test_one_missing_path_scans_nothing(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    history_home: Path,
+) -> None:
+    from skill_warden.cli import main
+
+    skill = _skill(tmp_path)
+    called = False
+
+    def fake_scan(paths, *, llm, detonate, history):
+        del paths, llm, detonate, history
+        nonlocal called
+        called = True
+        return ()
+
+    monkeypatch.setattr("skill_warden.cli.scan", fake_scan)
+
+    code = main(["scan", str(skill), str(tmp_path / "missing"), "--no-history"])
+
+    assert code == 2
+    assert called is False
     assert not (history_home / "history.sqlite3").exists()

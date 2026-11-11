@@ -10,6 +10,8 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Never
 
+from skill_warden.errors import NoSkillError
+from skill_warden.intake import discover
 from skill_warden.models import Report
 from skill_warden.pipeline import scan
 from skill_warden.reader import Reader
@@ -37,7 +39,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = _parser()
     try:
         args = parser.parse_args(list(sys.argv[1:] if argv is None else argv))
-        paths = _directories(args.paths)
+        paths = _skill_paths(args.paths)
         llm = _reader(args.llm, args.llm_base_url, args.llm_key_env)
     except _Usage as exc:
         message = redact(str(exc), _secrets())
@@ -69,13 +71,14 @@ def _parser() -> _Parser:
     return parser
 
 
-def _directories(items: Sequence[str]) -> list[Path]:
+def _skill_paths(items: Sequence[str]) -> list[Path]:
     paths: list[Path] = []
     for item in items:
-        path = Path(item)
-        if path.is_symlink() or not path.is_dir():
-            raise _Usage(f"not a skill directory: {item}")
-        paths.append(path)
+        try:
+            found = discover(Path(item))
+        except NoSkillError as exc:
+            raise _Usage(str(exc)) from None
+        paths.extend(discovered.path for discovered in found)
     return paths
 
 
