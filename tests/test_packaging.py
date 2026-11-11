@@ -12,6 +12,7 @@ pytestmark = pytest.mark.packaging
 ROOT = Path(__file__).resolve().parents[1]
 MEMORY = ROOT / "fixtures" / "skills" / "memory-poison" / "SKILL.md"
 MEMORY_DIR = ROOT / "fixtures" / "skills" / "memory-poison"
+CLEAN_DIR = ROOT / "fixtures" / "skills" / "clean-date"
 
 _SCAN = """\
 import json
@@ -121,6 +122,36 @@ def test_installed_cli_scans_copied_fixture(installed_python: Path, tmp_path: Pa
     assert body["schema"] == "skill-warden/scan@1"
     assert body["summary"]["worst"] == "BLOCK"
     assert body["reports"][0]["verdict"]["reason"] == "high_finding"
+    assert _env_secrets_absent(scanned.stdout, scanned.stderr)
+
+
+def test_installed_cli_allows_clean_date(installed_python: Path, tmp_path: Path):
+    outside = tmp_path / "outside"
+    copied = outside / "clean-date"
+    shutil.copytree(CLEAN_DIR, copied)
+    assert not copied.is_relative_to(ROOT)
+
+    scanned = subprocess.run(
+        [
+            str(installed_python.parent / "skill-warden"),
+            "scan",
+            str(copied),
+            "--format",
+            "json",
+            "--no-history",
+        ],
+        cwd=outside,
+        check=False,
+        capture_output=True,
+        text=True,
+        env=_installed_env(installed_python, tmp_path / "home"),
+    )
+    assert scanned.returncode == 0, scanned.stderr
+    body = json.loads(scanned.stdout)
+    assert body["schema"] == "skill-warden/scan@1"
+    assert body["summary"]["worst"] == "ALLOW"
+    assert body["reports"][0]["verdict"]["decision"] == "ALLOW"
+    assert body["reports"][0]["verdict"]["reason"] == "clean"
     assert _env_secrets_absent(scanned.stdout, scanned.stderr)
 
 
