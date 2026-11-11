@@ -11,6 +11,7 @@ from pathlib import Path, PurePosixPath
 from typing import Literal
 
 from skill_warden.errors import NoSkillError, SkillTreeError
+from skill_warden.frontmatter import read_frontmatter
 from skill_warden.hashing import content_hash_v2
 from skill_warden.models import FileEntry, Finding, Severity, SkillRecord, Source
 
@@ -106,9 +107,30 @@ def load_skill(
         entries.append(_entry(item, kind))
         findings.extend(extra)
     findings.extend(case_collisions(relpaths))
+    name = _skill_name(root, entries, findings)
     digest = _digest(root, findings)
-    record = SkillRecord(root, root.name, digest, 2, tuple(entries))
+    record = SkillRecord(root, name, digest, 2, tuple(entries))
     return LoadedSkill(record, tuple(findings))
+
+
+def _skill_name(root: Path, entries: Sequence[FileEntry], findings: list[Finding]) -> str:
+    skill = next(
+        (item for item in entries if item.relpath == "SKILL.md" and item.kind == "text"),
+        None,
+    )
+    if skill is None:
+        findings.append(_finding("frontmatter_invalid", Severity.INFO, file="SKILL.md"))
+        return root.name
+    try:
+        text = (root / "SKILL.md").read_text(encoding="utf-8")
+    except OSError:
+        findings.append(_finding("frontmatter_invalid", Severity.INFO, file="SKILL.md"))
+        return root.name
+    result = read_frontmatter(text)
+    findings.extend(result.findings)
+    if result.name is None:
+        return root.name
+    return result.name
 
 
 def write_normalized(

@@ -7,6 +7,9 @@ Read this first when you come back. The plan is `docs/milestones.md`, the design
 Newest first. Two lines per session: where you stopped, and what's next.
 
 - **2026-11-10:**
+  - **Stopped:** M2-09. `frontmatter.py` compares `yaml.safe_load` with a line parser. Each §8 step 6 row has a test, a `!!python/object` tag never builds an object, and generated plain frontmatter agrees. `load_skill` uses the YAML name when it is a string. `PATH=.venv/bin:$PATH .venv/bin/python scripts/ci.py pr` exits 0 (436 passed under coverage).
+  - **Next:** M2-10 Hostile trees. M1 acceptance is still open for `pipx install` and `scan --detonate` from the CLI.
+- **2026-11-10:**
   - **Stopped:** M2-08. `write_normalized` copies text files into a 0700 directory, strips `Cf` characters, and NFKC-normalizes the rest. A U+200B inside `MEMORY.md` is `obfuscation.unicode` and is gone from the copy. A non-breaking space is normalized and is not a finding. Original bytes and the v2 hash stay put. `PATH=.venv/bin:$PATH .venv/bin/python scripts/ci.py pr` exits 0 (416 passed under coverage).
   - **Next:** M2-09 Frontmatter read two ways. M1 acceptance is still open for `pipx install` and `scan --detonate` from the CLI.
 - **2026-11-10:**
@@ -71,9 +74,9 @@ Newest first. Two lines per session: where you stopped, and what's next.
 
 Limit: one task in **Now**, two at most.
 
-- **Now:** M2-09 Frontmatter read two ways.
-- **Next:** M2-10 Hostile trees.
-- **Later:** M2-11 through M2-14, then M3–M10 in order. M1 acceptance (`pipx install`, and `scan --detonate` from the CLI) is still open.
+- **Now:** M2-10 Hostile trees.
+- **Next:** M2-11 Static stage, fail-closed.
+- **Later:** M2-12 through M2-14, then M3–M10 in order. M1 acceptance (`pipx install`, and `scan --detonate` from the CLI) is still open.
 
 ## Milestones
 
@@ -81,7 +84,7 @@ Limit: one task in **Now**, two at most.
 | --- | --- | --- |
 | M0 Hackathon baseline | done | 169 tests passed on 14 October 2026. Commits `8a0f168` (code) and `3274e8b` (plans) |
 | M1 Walking skeleton | in progress | M1-01 through M1-10 done. Acceptance still open for `pipx install` and `scan --detonate` from the CLI. `scripts/ci.py pr` exits 0 |
-| M2 Fail-closed core | in progress | M2-01 through M2-08 done. M2-09 is next |
+| M2 Fail-closed core | in progress | M2-01 through M2-09 done. M2-10 is next |
 | M3 Detection quality | not started | |
 | M4 Bring your own model | not started | |
 | M5 Living with false positives | not started | |
@@ -105,7 +108,7 @@ Fail-closed core. Do these in order, one at a time. Tick a box when that task's 
 - [x] **M2-06 — Content hash v2.** `hashing.content_hash_v2` covers every file, including `HASH` and dotfiles, with a mode byte for the execute bit and length-prefixed entries. Done when the §16.3 hash properties pass, including "a top-level `HASH` file changes the hash".
 - [x] **M2-07 — Intake inventory.** `intake.discover` and `load_skill`: symlink and FIFO errors, the caps, text and binary classification, and `intake.case_collisions`. Done when `tests/test_intake.py` covers §8 steps 1, 2 and 4. The end-to-end case-collision test is marked `case_sensitive_fs`.
 - [x] **M2-08 — Normalized copy.** NFKC plus `Cf` stripping into a private 0700 temporary directory, with `obfuscation.unicode` recorded against the file. Done when a U+200B inside `MEMORY.md` gives a finding and a clean copy, and a non-breaking space alone gives no finding.
-- [ ] **M2-09 — Frontmatter read two ways.** `frontmatter.py` compares `yaml.safe_load` with the line parser, per §8 step 6. Add `pyyaml`. Done when `tests/test_frontmatter.py` has one test per table row, a `!!python/object` tag never builds an object, and the agreement property holds for generated frontmatter inside the subset.
+- [x] **M2-09 — Frontmatter read two ways.** `frontmatter.py` compares `yaml.safe_load` with the line parser, per §8 step 6. Add `pyyaml`. Done when `tests/test_frontmatter.py` has one test per table row, a `!!python/object` tag never builds an object, and the agreement property holds for generated frontmatter inside the subset.
 - [ ] **M2-10 — Hostile trees.** 30 levels of nesting, a 255-byte name, an invalid-UTF-8 name, a symlink loop, a FIFO, a sparse file larger than the cap, and names that collide after NFKC. Done when each gives a named finding and none raises.
 - [ ] **M2-11 — Static stage, fail-closed.** `static/semgrep.py` resolves the binary next to `sys.executable` first, passes explicit file targets, uses a minimal subprocess environment, covers every §9.3 row, and runs the liveness canary. Done when each §9.3 row has a test with an injected `run` and one with `fake_binary`.
 - [ ] **M2-12 — Fix the memory rule.** The regex is a single-line scalar. Add the `dotslash-memory` and `zero-width-memory` fixtures. Done when `append the note to ./MEMORY.md` is BLOCK, and the reachability test emits `skill-memory-file-persistence` from a fixture.
@@ -158,3 +161,4 @@ Two paths share the jail:
 | 2026-11-05 | `content_hash_v2` raises `unreadable` for an unlistable directory or an unreadable file, and hashes raw path bytes. `scripts/ci.py pr` exits 0 (373 passed, 92.19% overall). |
 | 2026-11-10 | M2-07. Intake inventories a skill without following links, and discovery accepts a linked root. `scripts/ci.py pr` exits 0 (411 passed under coverage). |
 | 2026-11-10 | M2-08. Text files are copied with `Cf` characters stripped and NFKC applied. A zero-width character is a finding; a non-breaking space is not. |
+| 2026-11-10 | M2-09. Frontmatter is read with YAML and a line parser. Disagreement, complex constructs, and parse failures are findings. `scripts/ci.py pr` exits 0 (436 passed under coverage). |

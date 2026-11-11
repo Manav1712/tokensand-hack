@@ -28,21 +28,22 @@ def _skill(root: Path, text: str = "hello\n") -> None:
 
 
 def test_utf8_file_is_text_and_hashed(tmp_path: Path) -> None:
-    _skill(tmp_path)
+    body = "---\nname: demo\ndescription: A demo skill.\n---\nhello\n"
+    _skill(tmp_path, body)
     (tmp_path / "HASH").write_text("note\n", encoding="utf-8")
     (tmp_path / ".hidden").write_text("dot\n", encoding="utf-8")
 
     loaded = load_skill(tmp_path)
 
     assert loaded.findings == ()
-    assert loaded.record.name == tmp_path.name
+    assert loaded.record.name == "demo"
     assert loaded.record.hash_version == 2
     assert loaded.record.content_sha256 == content_hash_v2(tmp_path)
     kinds = {entry.relpath: entry for entry in loaded.record.files}
     assert set(kinds) == {"SKILL.md", "HASH", ".hidden"}
     assert kinds["SKILL.md"].kind == "text"
     assert kinds["SKILL.md"].executable is False
-    assert kinds["SKILL.md"].size == len(b"hello\n")
+    assert kinds["SKILL.md"].size == len(body.encode())
 
 
 def test_symlink_is_an_error_and_is_not_resolved(tmp_path: Path) -> None:
@@ -308,7 +309,7 @@ def test_other_binary_is_binary_file(tmp_path: Path) -> None:
 
 
 def test_executable_text_stays_text(tmp_path: Path) -> None:
-    _skill(tmp_path)
+    _skill(tmp_path, "---\nname: demo\ndescription: A demo skill.\n---\nhello\n")
     script = tmp_path / "scripts" / "run.sh"
     script.parent.mkdir()
     script.write_text("echo hi\n", encoding="utf-8")

@@ -70,6 +70,7 @@ _TYPE_FILES = [
     "src/skill_warden/__init__.py",
     "src/skill_warden/cli.py",
     "src/skill_warden/errors.py",
+    "src/skill_warden/frontmatter.py",
     "src/skill_warden/hashing.py",
     "src/skill_warden/history.py",
     "src/skill_warden/intake.py",
