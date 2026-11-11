@@ -7,6 +7,9 @@ Read this first when you come back. The plan is `docs/milestones.md`, the design
 Newest first. Two lines per session: where you stopped, and what's next.
 
 - **2026-11-10:**
+  - **Stopped:** M2-08. `write_normalized` copies text files into a 0700 directory, strips `Cf` characters, and NFKC-normalizes the rest. A U+200B inside `MEMORY.md` is `obfuscation.unicode` and is gone from the copy. A non-breaking space is normalized and is not a finding. Original bytes and the v2 hash stay put. `PATH=.venv/bin:$PATH .venv/bin/python scripts/ci.py pr` exits 0 (416 passed under coverage).
+  - **Next:** M2-09 Frontmatter read two ways. M1 acceptance is still open for `pipx install` and `scan --detonate` from the CLI.
+- **2026-11-10:**
   - **Stopped:** M2-07. `intake.discover` finds a skill directory, a `SKILL.md` file, or a search root four levels deep, and resolves a symlink root once as `symlink_root`. `load_skill` records symlink, FIFO, cap, and text or binary findings, and hashes a clean tree with `content_hash_v2`. `PATH=.venv/bin:$PATH .venv/bin/python scripts/ci.py pr` exits 0 (411 passed under coverage). The case-collision test is marked `case_sensitive_fs` and runs in that coverage command on a case-sensitive disk.
   - **Next:** M2-08 Normalized copy. M1 acceptance is still open for `pipx install` and `scan --detonate` from the CLI.
 - **2026-11-05:**
@@ -68,9 +71,9 @@ Newest first. Two lines per session: where you stopped, and what's next.
 
 Limit: one task in **Now**, two at most.
 
-- **Now:** M2-08 Normalized copy.
-- **Next:** M2-09 Frontmatter read two ways.
-- **Later:** M2-10 through M2-14, then M3–M10 in order. M1 acceptance (`pipx install`, and `scan --detonate` from the CLI) is still open.
+- **Now:** M2-09 Frontmatter read two ways.
+- **Next:** M2-10 Hostile trees.
+- **Later:** M2-11 through M2-14, then M3–M10 in order. M1 acceptance (`pipx install`, and `scan --detonate` from the CLI) is still open.
 
 ## Milestones
 
@@ -78,7 +81,7 @@ Limit: one task in **Now**, two at most.
 | --- | --- | --- |
 | M0 Hackathon baseline | done | 169 tests passed on 14 October 2026. Commits `8a0f168` (code) and `3274e8b` (plans) |
 | M1 Walking skeleton | in progress | M1-01 through M1-10 done. Acceptance still open for `pipx install` and `scan --detonate` from the CLI. `scripts/ci.py pr` exits 0 |
-| M2 Fail-closed core | in progress | M2-01 through M2-07 done. M2-08 is next |
+| M2 Fail-closed core | in progress | M2-01 through M2-08 done. M2-09 is next |
 | M3 Detection quality | not started | |
 | M4 Bring your own model | not started | |
 | M5 Living with false positives | not started | |
@@ -101,7 +104,7 @@ Fail-closed core. Do these in order, one at a time. Tick a box when that task's 
 - [x] **M2-05 — Policy: the full decision table.** `decide(outcome, approval=None)` for §12 rows 1–11 and 13. Rows 8–10 are a requested stage that came back without findings. Add `policy.py` to the core and mutation lists. Done when every §12 case with no approval passes, determinism and monotonicity hold, and the mutation floor is 100%.
 - [x] **M2-06 — Content hash v2.** `hashing.content_hash_v2` covers every file, including `HASH` and dotfiles, with a mode byte for the execute bit and length-prefixed entries. Done when the §16.3 hash properties pass, including "a top-level `HASH` file changes the hash".
 - [x] **M2-07 — Intake inventory.** `intake.discover` and `load_skill`: symlink and FIFO errors, the caps, text and binary classification, and `intake.case_collisions`. Done when `tests/test_intake.py` covers §8 steps 1, 2 and 4. The end-to-end case-collision test is marked `case_sensitive_fs`.
-- [ ] **M2-08 — Normalized copy.** NFKC plus `Cf` stripping into a private 0700 temporary directory, with `obfuscation.unicode` recorded against the file. Done when a U+200B inside `MEMORY.md` gives a finding and a clean copy, and a non-breaking space alone gives no finding.
+- [x] **M2-08 — Normalized copy.** NFKC plus `Cf` stripping into a private 0700 temporary directory, with `obfuscation.unicode` recorded against the file. Done when a U+200B inside `MEMORY.md` gives a finding and a clean copy, and a non-breaking space alone gives no finding.
 - [ ] **M2-09 — Frontmatter read two ways.** `frontmatter.py` compares `yaml.safe_load` with the line parser, per §8 step 6. Add `pyyaml`. Done when `tests/test_frontmatter.py` has one test per table row, a `!!python/object` tag never builds an object, and the agreement property holds for generated frontmatter inside the subset.
 - [ ] **M2-10 — Hostile trees.** 30 levels of nesting, a 255-byte name, an invalid-UTF-8 name, a symlink loop, a FIFO, a sparse file larger than the cap, and names that collide after NFKC. Done when each gives a named finding and none raises.
 - [ ] **M2-11 — Static stage, fail-closed.** `static/semgrep.py` resolves the binary next to `sys.executable` first, passes explicit file targets, uses a minimal subprocess environment, covers every §9.3 row, and runs the liveness canary. Done when each §9.3 row has a test with an injected `run` and one with `fake_binary`.
@@ -154,3 +157,4 @@ Two paths share the jail:
 | 2026-11-05 | M2-06. `content_hash_v2` includes `HASH`, dotfiles, and an execute-bit mode byte. v1 `content_hash` is unchanged and still used by the pipeline. |
 | 2026-11-05 | `content_hash_v2` raises `unreadable` for an unlistable directory or an unreadable file, and hashes raw path bytes. `scripts/ci.py pr` exits 0 (373 passed, 92.19% overall). |
 | 2026-11-10 | M2-07. Intake inventories a skill without following links, and discovery accepts a linked root. `scripts/ci.py pr` exits 0 (411 passed under coverage). |
+| 2026-11-10 | M2-08. Text files are copied with `Cf` characters stripped and NFKC applied. A zero-width character is a finding; a non-breaking space is not. |

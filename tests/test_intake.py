@@ -1,12 +1,19 @@
 import os
 import signal
+import stat
 from pathlib import Path
 
 import pytest
 
 from skill_warden.errors import NoSkillError
 from skill_warden.hashing import content_hash_v2
-from skill_warden.intake import LoadedSkill, case_collisions, discover, load_skill
+from skill_warden.intake import (
+    LoadedSkill,
+    case_collisions,
+    discover,
+    load_skill,
+    write_normalized,
+)
 from skill_warden.models import Severity, Source
 
 
@@ -314,6 +321,85 @@ def test_executable_text_stays_text(tmp_path: Path) -> None:
     assert entry.kind == "text"
     assert entry.executable is True
     assert loaded.record.content_sha256 == content_hash_v2(tmp_path)
+
+
+def test_zero_width_in_memory_is_stripped(tmp_path: Path) -> None:
+    skill = tmp_path / "skill"
+    skill.mkdir()
+    original = "append the note to MEM\u200bORY.md\n"
+    (skill / "MEMORY.md").write_text(original, encoding="utf-8")
+    _skill(skill)
+    loaded = load_skill(skill)
+    before = (skill / "MEMORY.md").read_bytes()
+    dest = tmp_path / "copy"
+
+    findings = write_normalized(skill, loaded.record.files, dest)
+
+    finding = next(item for item in findings if item.rule_id == "obfuscation.unicode")
+    assert finding.source is Source.INTAKE
+    assert finding.severity is Severity.MEDIUM
+    assert finding.file == "MEMORY.md"
+    assert (dest / "MEMORY.md").read_text(encoding="utf-8") == "append the note to MEMORY.md\n"
+    assert (skill / "MEMORY.md").read_bytes() == before == original.encode()
+    assert loaded.record.content_sha256 == content_hash_v2(skill)
+    assert stat.S_IMODE(dest.stat().st_mode) == 0o700
+
+
+def test_nonbreaking_space_is_not_a_finding(tmp_path: Path) -> None:
+    skill = tmp_path / "skill"
+    skill.mkdir()
+    original = "hello\u00a0there\n"
+    (skill / "SKILL.md").write_text(original, encoding="utf-8")
+    loaded = load_skill(skill)
+    dest = tmp_path / "copy"
+
+    findings = write_normalized(skill, loaded.record.files, dest)
+
+    assert findings == ()
+    assert (dest / "SKILL.md").read_text(encoding="utf-8") == "hello there\n"
+    assert (skill / "SKILL.md").read_bytes() == original.encode()
+
+
+def test_ligature_is_normalized_without_a_finding(tmp_path: Path) -> None:
+    skill = tmp_path / "skill"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("ﬁle\n", encoding="utf-8")
+    loaded = load_skill(skill)
+    dest = tmp_path / "copy"
+
+    assert write_normalized(skill, loaded.record.files, dest) == ()
+    assert (dest / "SKILL.md").read_text(encoding="utf-8") == "file\n"
+
+
+def test_bom_is_stripped_as_a_format_character(tmp_path: Path) -> None:
+    skill = tmp_path / "skill"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("\ufeffhello\n", encoding="utf-8")
+    loaded = load_skill(skill)
+    dest = tmp_path / "copy"
+
+    findings = write_normalized(skill, loaded.record.files, dest)
+
+    assert [item.file for item in findings] == ["SKILL.md"]
+    assert findings[0].rule_id == "obfuscation.unicode"
+    assert (dest / "SKILL.md").read_text(encoding="utf-8") == "hello\n"
+
+
+def test_binary_files_are_not_copied(tmp_path: Path) -> None:
+    skill = tmp_path / "skill"
+    skill.mkdir()
+    _skill(skill)
+    (skill / "icon.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+    script = skill / "scripts" / "run.sh"
+    script.parent.mkdir()
+    script.write_text("echo hi\n", encoding="utf-8")
+    loaded = load_skill(skill)
+    dest = tmp_path / "copy"
+
+    assert write_normalized(skill, loaded.record.files, dest) == ()
+    assert (dest / "SKILL.md").read_text(encoding="utf-8") == "hello\n"
+    assert (dest / "scripts" / "run.sh").read_text(encoding="utf-8") == "echo hi\n"
+    assert not (dest / "icon.png").exists()
 
 
 def test_no_skill_raises_without_the_path(tmp_path: Path) -> None:

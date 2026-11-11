@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import stat
+import unicodedata
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
@@ -108,6 +109,45 @@ def load_skill(
     digest = _digest(root, findings)
     record = SkillRecord(root, root.name, digest, 2, tuple(entries))
     return LoadedSkill(record, tuple(findings))
+
+
+def write_normalized(
+    root: Path,
+    files: Sequence[FileEntry],
+    dest: Path,
+) -> tuple[Finding, ...]:
+    """Copy text files into ``dest`` with Cf characters stripped and NFKC applied.
+
+    The original bytes stay where they are. A non-breaking space is not a finding.
+    """
+    dest.mkdir(parents=True, exist_ok=True)
+    dest.chmod(0o700)
+    findings: list[Finding] = []
+    for entry in files:
+        if entry.kind != "text":
+            continue
+        source = root / entry.relpath
+        text = source.read_text(encoding="utf-8")
+        normalized, removed = _normalize_text(text)
+        target = dest / entry.relpath
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(normalized, encoding="utf-8")
+        if removed:
+            findings.append(
+                _finding("obfuscation.unicode", Severity.MEDIUM, file=entry.relpath)
+            )
+    return tuple(findings)
+
+
+def _normalize_text(text: str) -> tuple[str, bool]:
+    kept: list[str] = []
+    removed = False
+    for char in text:
+        if unicodedata.category(char) == "Cf":
+            removed = True
+            continue
+        kept.append(char)
+    return unicodedata.normalize("NFKC", "".join(kept)), removed
 
 
 def case_collisions(relpaths: Sequence[str]) -> tuple[Finding, ...]:
