@@ -13,7 +13,7 @@ from typing import Never
 from skill_warden.errors import NoSkillError
 from skill_warden.intake import discover
 from skill_warden.models import Report
-from skill_warden.pipeline import scan
+from skill_warden.pipeline import guarded_render, scan
 from skill_warden.reader import Reader
 from skill_warden.redact import redact
 
@@ -51,8 +51,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         llm=llm,
         detonate=args.detonate,
         history=not args.no_history,
+        full=args.full,
     )
-    rendered = redact(_render(args.format, paths, reports), _secrets())
+    rendered = guarded_render(redact(_render(args.format, paths, reports), _secrets()), _secrets())
     sys.stdout.write(rendered)
     return _exit_code(reports)
 
@@ -66,6 +67,7 @@ def _parser() -> _Parser:
     scan_command.add_argument("--llm-base-url")
     scan_command.add_argument("--llm-key-env")
     scan_command.add_argument("--detonate", action="store_true")
+    scan_command.add_argument("--full", action="store_true")
     scan_command.add_argument("--format", choices=("text", "json"), default="text")
     scan_command.add_argument("--no-history", action="store_true")
     return parser

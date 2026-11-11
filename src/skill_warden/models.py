@@ -224,8 +224,22 @@ class Verdict:
 class Report:
     findings: tuple[Finding, ...]
     verdict: Verdict
+    skill: SkillRecord | None = None
+    outcome: RunOutcome | None = None
+    coverage: tuple[StageResult, ...] = ()
+    timings_ms: tuple[tuple[str, int], ...] = ()
 
     def __post_init__(self) -> None:
         if not isinstance(self.verdict, Verdict):
             raise TypeError("verdict must be a Verdict")
+        if self.skill is not None and not isinstance(self.skill, SkillRecord):
+            raise TypeError("skill must be a SkillRecord")
+        if self.outcome is not None and not isinstance(self.outcome, RunOutcome):
+            raise TypeError("outcome must be a RunOutcome")
+        coverage = tuple(self.coverage)
+        if any(not isinstance(item, StageResult) for item in coverage):
+            raise TypeError("coverage must be StageResult values")
+        timings = tuple(tuple(item) for item in self.timings_ms)
         object.__setattr__(self, "findings", _freeze_findings(self.findings))
+        object.__setattr__(self, "coverage", coverage)
+        object.__setattr__(self, "timings_ms", timings)

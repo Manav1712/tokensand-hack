@@ -93,7 +93,7 @@ def test_exit_code_is_the_worst_verdict(
         reason = {"ALLOW": "clean", "ASK": "medium_only", "BLOCK": "high_finding"}[decision]
         reports.append(_report(decision, reason))
 
-    def fake_scan(got, *, llm, detonate, history):
+    def fake_scan(got, *, llm, detonate, history, full=False):
         assert list(got) == paths
         assert llm is None
         assert detonate is False
@@ -124,8 +124,9 @@ def test_detonate_and_model_are_forwarded(
             seen["called"] = text
             return {"flags": [], "evidence": []}
 
-    def fake_scan(paths, *, llm, detonate, history):
+    def fake_scan(paths, *, llm, detonate, history, full=False):
         seen["paths"] = list(paths)
+        seen["full"] = full
         seen["llm"] = llm
         seen["detonate"] = detonate
         seen["history"] = history
@@ -222,10 +223,11 @@ def test_env_key_never_appears_in_output(
     )
     report = Report((finding,), Verdict("BLOCK", "high_finding", "demo.rule"))
 
-    def fake_scan(paths, *, llm, detonate, history):
+    def fake_scan(paths, *, llm, detonate, history, full=False):
         assert llm is None
         assert detonate is False
         assert history is True
+        assert full is False
         return (report,)
 
     monkeypatch.setattr("skill_warden.cli.scan", fake_scan)
@@ -268,7 +270,7 @@ def test_failed_reader_does_not_print_the_key(
     captured = capsys.readouterr()
     assert code == 20
     assert "BLOCK" in captured.out
-    assert "not_finished" in captured.out
+    assert "reader_error" in captured.out or "not_finished" in captured.out
     assert secret not in captured.out
     assert secret not in captured.err
     assert "Traceback" not in captured.out
@@ -412,8 +414,8 @@ def test_one_missing_path_scans_nothing(
     skill = _skill(tmp_path)
     called = False
 
-    def fake_scan(paths, *, llm, detonate, history):
-        del paths, llm, detonate, history
+    def fake_scan(paths, *, llm, detonate, history, full=False):
+        del paths, llm, detonate, history, full
         nonlocal called
         called = True
         return ()

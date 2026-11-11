@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from skill_warden.errors import RedactionError
-from skill_warden.hashing import content_hash
+from skill_warden.hashing import content_hash, content_hash_v2
 from skill_warden.jail import detonate
 from skill_warden.memory_store import MemoryStore
 from skill_warden.models import Report, Severity, Source, Verdict
@@ -13,7 +13,7 @@ from skill_warden.pipeline import scan, scan_skill
 from skill_warden.reader import ReaderResult
 from skill_warden.registry import SkillRecord
 from skill_warden.semgrep import rule_path
-from skill_warden.semgrep import scan as semgrep_scan
+from skill_warden.static.semgrep import scan as static_scan
 
 ROOT = Path(__file__).resolve().parents[1]
 MEMORY = ROOT / "fixtures" / "skills" / "memory-poison"
@@ -65,19 +65,12 @@ def _record(path: Path, name: str) -> SkillRecord:
     )
 
 
-def test_memory_poison_is_block(monkeypatch: pytest.MonkeyPatch) -> None:
-    seen: list[Path] = []
-    real = content_hash
-
-    def spy(path: Path) -> str:
-        seen.append(Path(path))
-        return real(path)
-
-    monkeypatch.setattr("skill_warden.pipeline.content_hash", spy)
-
+def test_memory_poison_is_block() -> None:
     report = scan_skill(MEMORY)
 
-    assert seen == [MEMORY]
+    assert report.skill is not None
+    assert report.skill.hash_version == 2
+    assert report.skill.content_sha256 == content_hash_v2(MEMORY)
     assert isinstance(report, Report)
     assert report.verdict.decision == "BLOCK"
     assert report.verdict.reason == "high_finding"
@@ -143,7 +136,7 @@ def test_reader_with_no_flags_stays_allow() -> None:
 
     assert len(reader.texts) == 1
     assert report.verdict == Verdict("ALLOW", "clean", "")
-    assert [finding.rule_id for finding in report.findings] == ["semgrep.ok"]
+    assert [finding.rule_id for finding in report.findings] == ["semgrep.ok", "reader.ok"]
 
 
 def test_detonate_false_does_not_call_jail(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -166,9 +159,9 @@ def test_stage_exception_is_block_not_finished(
     llm = None
     detonate_skill = False
     if stage == "content_hash":
-        monkeypatch.setattr("skill_warden.pipeline.content_hash", _boom)
+        monkeypatch.setattr("skill_warden.pipeline.load_skill", _boom)
     elif stage == "semgrep.scan":
-        monkeypatch.setattr("skill_warden.pipeline.semgrep_scan", _boom)
+        monkeypatch.setattr("skill_warden.pipeline.static_scan", _boom)
     elif stage == "llm.call":
         llm = _Boom()
     elif stage == "policy.decide":
@@ -179,8 +172,17 @@ def test_stage_exception_is_block_not_finished(
 
     report = scan_skill(CLEAN, llm=llm, detonate=detonate_skill)
 
-    assert report == Report((), _BLOCKED)
-    assert report.verdict.detail == ""
+    if stage in {"content_hash", "policy.decide"}:
+        assert report == Report((), _BLOCKED)
+        assert report.verdict.detail == ""
+        return
+    if stage == "llm.call":
+        assert report.verdict == Verdict("BLOCK", "reader_error", "reader_unavailable")
+        return
+    if stage == "semgrep.scan":
+        assert report.verdict == Verdict("BLOCK", "tool_error", "semgrep_failed")
+        return
+    assert report.verdict == Verdict("BLOCK", "tool_error", "detonation_failed")
 
 
 def test_scan_continues_after_one_skill_raises(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -188,21 +190,21 @@ def test_scan_continues_after_one_skill_raises(monkeypatch: pytest.MonkeyPatch, 
     broken.mkdir()
     (broken / "SKILL.md").write_text("do nothing\n", encoding="utf-8")
     calls = {"n": 0}
-    real = semgrep_scan
+    real = static_scan
 
-    def flaky(paths: list[Path], config: Path) -> dict:
+    def flaky(*args: object, **kwargs: object):
         calls["n"] += 1
         if calls["n"] == 1:
             raise RuntimeError("semgrep failed")
-        return real(paths, config)
+        return real(*args, **kwargs)
 
-    monkeypatch.setattr("skill_warden.pipeline.semgrep_scan", flaky)
+    monkeypatch.setattr("skill_warden.pipeline.static_scan", flaky)
 
     reports = scan([broken, CLEAN])
 
     assert calls["n"] == 2
     assert isinstance(reports, tuple)
-    assert reports[0] == Report((), _BLOCKED)
+    assert reports[0].verdict == Verdict("BLOCK", "tool_error", "semgrep_failed")
     assert reports[1].verdict == Verdict("ALLOW", "clean", "")
 
 
