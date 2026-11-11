@@ -68,6 +68,7 @@ files = [
     "src/skill_warden/pipeline.py",
     "src/skill_warden/policy.py",
     "src/skill_warden/redact.py",
+    "src/skill_warden/static/semgrep.py",
 ]
 
 [tool.mutmut]
@@ -76,12 +77,14 @@ only_mutate = [
     "src/skill_warden/redact.py",
     "src/skill_warden/hashing.py",
     "src/skill_warden/policy.py",
+    "src/skill_warden/static/semgrep.py",
 ]
 also_copy = ["scripts/", "fixtures/"]
 pytest_add_cli_args_test_selection = [
     "tests/test_redact.py",
     "tests/test_hashing.py",
     "tests/test_policy.py",
+    "tests/test_static_semgrep.py",
 ]
 
 [tool.importlinter]
@@ -101,6 +104,7 @@ source_modules = [
     "skill_warden.frontmatter",
     "skill_warden.intake",
     "skill_warden.semgrep",
+    "skill_warden.static",
     "skill_warden.reader",
     "skill_warden.jail",
 ]
@@ -111,4 +115,5 @@ files = [
     "src/skill_warden/redact.py",
     "src/skill_warden/hashing.py",
     "src/skill_warden/policy.py",
+    "src/skill_warden/static/semgrep.py",
 ]

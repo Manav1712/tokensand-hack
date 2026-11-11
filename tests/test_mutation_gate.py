@@ -142,11 +142,12 @@ def test_mutate_runs_every_core_file(monkeypatch, tmp_path):
 
     assert code == 0
     run_calls = [call for call in calls if call[:2] == ["mutmut", "run"]]
-    assert len(run_calls) == 3
+    assert len(run_calls) == 4
     patterns = [call[-1] for call in run_calls]
     assert "skill_warden.redact*" in patterns
     assert "skill_warden.hashing*" in patterns
     assert "skill_warden.policy*" in patterns
+    assert "skill_warden.static.semgrep*" in patterns
 
 
 def _git(repo: Path, *args: str) -> str:

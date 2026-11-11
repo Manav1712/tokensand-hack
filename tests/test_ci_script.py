@@ -37,6 +37,15 @@ _PASSING_COVERAGE = json.dumps(
                     "num_partial_branches": 0,
                 },
             },
+            "src/skill_warden/static/semgrep.py": {
+                "missing_lines": [],
+                "missing_branches": [],
+                "summary": {
+                    "percent_covered": 100,
+                    "missing_branches": 0,
+                    "num_partial_branches": 0,
+                },
+            },
         },
     }
 )
@@ -80,6 +89,7 @@ _TYPE_FILES = [
     "src/skill_warden/pipeline.py",
     "src/skill_warden/policy.py",
     "src/skill_warden/redact.py",
+    "src/skill_warden/static/semgrep.py",
 ]
 
 

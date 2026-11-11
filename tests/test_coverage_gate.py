@@ -11,6 +11,7 @@ CORE = [
     "src/skill_warden/redact.py",
     "src/skill_warden/hashing.py",
     "src/skill_warden/policy.py",
+    "src/skill_warden/static/semgrep.py",
 ]
 
 
