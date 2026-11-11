@@ -6,6 +6,9 @@ Read this first when you come back. The plan is `docs/milestones.md`, the design
 
 Newest first. Two lines per session: where you stopped, and what's next.
 
+- **2026-11-10:**
+  - **Stopped:** Audited M2 against the architecture. The record is `docs/audits/m2-2026-11-10.md`. `PATH=.venv/bin:$PATH .venv/bin/python scripts/ci.py pr` exits 0 (374 passed under coverage, 92.19% overall, `redact.py`, `hashing.py`, and `policy.py` at 100% branch coverage). `mutate --changed` skipped because no core file changed. Full M2 acceptance is not met. Added an installed-CLI `clean-date` packaging test and `tests/test_cli_detonate.py` for `scan --detonate`.
+  - **Next:** M2-07 Intake inventory. M1 acceptance is still open for `pipx install`.
 - **2026-11-05:**
   - **Stopped:** `content_hash_v2` fails closed. An unlistable directory or an unreadable file raises `SkillTreeError("unreadable")` with no path in the message. Path bytes go through `os.fsencode`, so a non-UTF-8 name is hashed. Owner-only execute (`0o744`) matches any other execute bit, and setuid without an execute bit stays `-`. A matching approval is still ignored. `StageResult.public()` is the safe mapping; `asdict` still includes secrets. `PATH=.venv/bin:$PATH .venv/bin/python scripts/ci.py pr` exits 0 (373 passed under coverage, 92.19% overall). `hashing.py` and `policy.py` are at 100% branch coverage. `policy.py` is 188/188 mutants killed. `hashing.py` is 113/120 (94.2%): the five equivalent v1 survivors remain, and two v2 survivors drop the explicit `"big"` byteorder, which is the default.
   - **Next:** M2-07 Intake inventory. M1 acceptance is still open for `pipx install` and `scan --detonate` from the CLI.
@@ -67,15 +70,15 @@ Limit: one task in **Now**, two at most.
 
 - **Now:** M2-07 Intake inventory.
 - **Next:** M2-08 Normalized copy.
-- **Later:** M2-08 through M2-14, then M3–M10 in order. M1 acceptance (`pipx install`, and `scan --detonate` from the CLI) is still open.
+- **Later:** M2-08 through M2-14, then M3–M10 in order. M1 acceptance is still open for `pipx install`. `scan --detonate` from the console script is covered by `tests/test_cli_detonate.py`.
 
 ## Milestones
 
 | Milestone | State | Notes |
 | --- | --- | --- |
 | M0 Hackathon baseline | done | 169 tests passed on 14 October 2026. Commits `8a0f168` (code) and `3274e8b` (plans) |
-| M1 Walking skeleton | in progress | M1-01 through M1-10 done. Acceptance still open for `pipx install` and `scan --detonate` from the CLI. `scripts/ci.py pr` exits 0 |
-| M2 Fail-closed core | in progress | M2-01 through M2-06 done. M2-07 is next |
+| M1 Walking skeleton | in progress | M1-01 through M1-10 done. Acceptance still open for `pipx install`. `scan --detonate` from the console script is covered by `tests/test_cli_detonate.py`. `scripts/ci.py pr` exits 0 |
+| M2 Fail-closed core | in progress | M2-01 through M2-06 done. M2-07 is next. Audited 10 November 2026: acceptance is not met (`docs/audits/m2-2026-11-10.md`) |
 | M3 Detection quality | not started | |
 | M4 Bring your own model | not started | |
 | M5 Living with false positives | not started | |
@@ -150,3 +153,4 @@ Two paths share the jail:
 | 2026-11-05 | M2-05. `decide` takes a `RunOutcome`. Rows 1–11 and 13 pass with no approval. `policy.py` is core: 100% branch coverage, 188/188 mutants killed. |
 | 2026-11-05 | M2-06. `content_hash_v2` includes `HASH`, dotfiles, and an execute-bit mode byte. v1 `content_hash` is unchanged and still used by the pipeline. |
 | 2026-11-05 | `content_hash_v2` raises `unreadable` for an unlistable directory or an unreadable file, and hashes raw path bytes. `scripts/ci.py pr` exits 0 (373 passed, 92.19% overall). |
+| 2026-11-10 | M2 audit against the architecture. Acceptance is not met: intake, fail-closed Semgrep, and the ClickHouse removal are still open. `scripts/ci.py pr` exits 0 (374 passed, 92.19% overall). Recorded in `docs/audits/m2-2026-11-10.md`. |
